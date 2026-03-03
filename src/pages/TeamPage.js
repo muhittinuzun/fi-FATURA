@@ -10,6 +10,7 @@ function TeamPage({ profile, user }) {
     role: "user",
     phone: ""
   });
+  const [error, setError] = React.useState("");
 
   const isAdmin = profile?.role === "admin";
 
@@ -40,16 +41,26 @@ function TeamPage({ profile, user }) {
 
   const handleAdd = async () => {
     if (!newUser.email || !newUser.full_name || !newUser.password) return;
-    await window.addUser(newUser);
-    setShowModal(false);
-    setNewUser({ email: "", full_name: "", password: "", role: "user", phone: "" });
-    setTimeout(loadTeam, 1000);
+    setError("");
+    try {
+      await window.addUser({ ...newUser, company_id: profile?.company_id || null });
+      setShowModal(false);
+      setNewUser({ email: "", full_name: "", password: "", role: "user", phone: "" });
+      setTimeout(loadTeam, 1000);
+    } catch (err) {
+      setError(err.message || "Kullanici eklenemedi.");
+    }
   };
 
   const handleDelete = async (uid) => {
     if (!confirm("Bu kullanıcıyı silmek istediğinize emin misiniz?")) return;
-    await window.deleteUser(uid);
-    setTimeout(loadTeam, 1000);
+    setError("");
+    try {
+      await window.deleteUser(uid);
+      setTimeout(loadTeam, 1000);
+    } catch (err) {
+      setError(err.message || "Kullanici silinemedi.");
+    }
   };
 
   const roleBadge = (role) => {
@@ -87,6 +98,7 @@ function TeamPage({ profile, user }) {
           Yeni Kullanıcı Ekle
         </button>
       </div>
+      {error && <p className="text-sm text-rose-600 mb-3">{error}</p>}
 
       <div className="overflow-x-auto border border-slate-200 rounded-xl">
         <table className="w-full text-sm">

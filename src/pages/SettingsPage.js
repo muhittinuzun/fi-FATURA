@@ -2,6 +2,7 @@ function MetadataManager({ table, title, icon, companyId }) {
   const [items, setItems] = React.useState([]);
   const [newValue, setNewValue] = React.useState("");
   const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState("");
   const parseItems = (data) => {
     if (Array.isArray(data)) return data;
     if (Array.isArray(data?.items)) return data.items;
@@ -24,12 +25,31 @@ function MetadataManager({ table, title, icon, companyId }) {
     };
   };
 
+  const isValidForTable = (item) => {
+    if (!item || typeof item !== "object") return false;
+    if (table === "company_cards") {
+      return Boolean(item.last_4_digits || item.card_alias || item.bank_name);
+    }
+    if (table === "projects") {
+      return Boolean(item.name || item.project_name || item.code);
+    }
+    if (table === "categories") {
+      return Boolean(item.name || item.category_name);
+    }
+    return true;
+  };
+
   const load = async () => {
     setLoading(true);
+    setError("");
     try {
       const data = await window.fetchMetadata(table);
       const loaded = parseItems(data);
-      setItems(loaded.map(normalizeItem));
+      const normalized = loaded.map(normalizeItem).filter(isValidForTable);
+      setItems(normalized);
+      if (table === "company_cards" && loaded.length > 0 && normalized.length === 0) {
+        setError("company_cards verisi beklenen formatta donmuyor.");
+      }
     } finally {
       setLoading(false);
     }
@@ -44,15 +64,25 @@ function MetadataManager({ table, title, icon, companyId }) {
     const payload = table === "company_cards"
       ? { last_4_digits: newValue, bank_name: "Kredi Kartı", card_alias: `Kart ${newValue}` }
       : { name: newValue };
-    await window.addMetadata(table, payload);
-    setNewValue("");
-    load();
+    setError("");
+    try {
+      await window.addMetadata(table, payload);
+      setNewValue("");
+      await load();
+    } catch (err) {
+      setError(err.message || "Ekleme islemi basarisiz.");
+    }
   };
 
   const remove = async (id) => {
     if (!confirm("Silmek istediğinize emin misiniz?")) return;
-    await window.deleteMetadata(table, id);
-    load();
+    setError("");
+    try {
+      await window.deleteMetadata(table, id);
+      await load();
+    } catch (err) {
+      setError(err.message || "Silme islemi basarisiz.");
+    }
   };
 
   const renderValue = (item) => {
@@ -97,6 +127,7 @@ function MetadataManager({ table, title, icon, companyId }) {
           ))
         )}
       </div>
+      {error && <p className="mt-2 text-xs text-rose-600">{error}</p>}
     </section>
   );
 }

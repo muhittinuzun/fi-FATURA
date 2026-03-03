@@ -45,17 +45,32 @@ function ReceiptTable({ receipts = [], loading = false, simple = false, profile 
   };
 
   const normalizeOcrLine = (line) => {
-    if (!line || typeof line !== "object") {
+    if (!line) {
       return { aciklama: "", kategori: "", kdv: "", tutar: "" };
     }
-    const aciklama = line.aciklama || line.description || line.urun || line.ad || "";
-    const kategori = line.kategori || line.category || "";
+    if (typeof line === "string") {
+      return { aciklama: line, kategori: "", kdv: "", tutar: "" };
+    }
+    if (typeof line !== "object") {
+      return { aciklama: String(line), kategori: "", kdv: "", tutar: "" };
+    }
+
+    const keys = Object.keys(line);
+    const pickByIncludes = (candidates) => {
+      const key = keys.find((k) => candidates.some((token) => k.toLowerCase().includes(token)));
+      return key ? line[key] : undefined;
+    };
+
+    const aciklama = line.aciklama || line.description || line.urun || line.ad || pickByIncludes(["aciklama", "desc", "urun", "item", "name"]) || "";
+    const kategori = line.kategori || line.category || pickByIncludes(["kategori", "category"]) || "";
     const kdv =
       line.kdv ??
       line.kdv_oran ??
       line.vat_rate ??
       line.kdvRate ??
       line.kdvOran ??
+      line.kdv_tutar ??
+      pickByIncludes(["kdv", "vat"]) ??
       "";
     const tutar =
       line.tutar ??
@@ -63,6 +78,10 @@ function ReceiptTable({ receipts = [], loading = false, simple = false, profile 
       line.amount ??
       line.total ??
       line.kalem_tutar ??
+      line.fiyat ??
+      line.price ??
+      line.matrah ??
+      pickByIncludes(["tutar", "amount", "total", "fiyat", "price", "matrah"]) ??
       "";
     return { aciklama, kategori, kdv, tutar };
   };

@@ -11,6 +11,9 @@ const parseResponse = async (response) => {
     const message = typeof body === "string" ? body : body?.message || "API hatasi";
     throw new Error(message);
   }
+  if (body && typeof body === "object" && body.ok === false) {
+    throw new Error(body.message || "Islem basarisiz");
+  }
   return body;
 };
 
@@ -81,19 +84,59 @@ const updateReceipt = async (receiptId, data) => gatewayRequest("update_receipt"
 const fetchTeam = async () => gatewayRequest("get_team", {});
 
 // TODO: Backend'de "add_user" action'ını implemente et
-const addUser = async (userData) => gatewayRequest("add_user", {
-  email: userData.email,
-  full_name: userData.full_name,
-  password: userData.password,
-  role: userData.role,
-  phone: userData.phone
-});
+const addUser = async (userData) => {
+  const base = {
+    email: userData.email,
+    full_name: userData.full_name,
+    password: userData.password,
+    role: userData.role || "user",
+    company_id: userData.company_id || null
+  };
+  const attempts = [
+    { ...base, phone: userData.phone || null },
+    { ...base, phone_number: userData.phone || null },
+    { ...base, phone: userData.phone || null, status: "true" },
+    { ...base, phone_number: userData.phone || null, status: "true" },
+    { ...base, phone: userData.phone || null, is_active: true },
+    { ...base, phone_number: userData.phone || null, is_active: true }
+  ];
+  let lastError = null;
+  for (const payload of attempts) {
+    try {
+      return await gatewayRequest("add_user", payload);
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  throw lastError || new Error("Kullanici ekleme basarisiz.");
+};
 
 // TODO: Backend'de "delete_user" action'ını implemente et
 const deleteUser = async (userId) => gatewayRequest("delete_user", { user_id: userId });
 
 // TODO: Backend'de "manage_metadata" action'ını implemente et
-const fetchMetadata = async (table) => gatewayRequest("manage_metadata", { table, operation: "list" });
+const fetchMetadata = async (table) => {
+  const tableVariants = [table];
+  if (table === "categories") tableVariants.push("category");
+  if (table === "projects") tableVariants.push("project");
+  if (table === "company_cards") tableVariants.push("company_card");
+
+  const attempts = [];
+  for (const t of tableVariants) {
+    attempts.push({ table: t, operation: "list" });
+    attempts.push({ table: t, operation: "get" });
+  }
+
+  let lastError = null;
+  for (const payload of attempts) {
+    try {
+      return await gatewayRequest("manage_metadata", payload);
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  throw lastError || new Error("Metadata listesi alinamadi.");
+};
 
 // TODO: Backend'de "manage_metadata" action'ını implemente et
 const addMetadata = async (table, data) => {
