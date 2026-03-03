@@ -8,36 +8,21 @@
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: { sans: ['Inter', 'sans-serif'] },
-                    colors: { primary: '#2563eb', secondary: '#1e293b', ai: '#8b5cf6' }
-                }
-            }
-        }
-    </script>
+    <script src="https://unpkg.com/lucide@0.263.1/dist/umd/lucide.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
-        body { background-color: #f8fafc; }
-        .glass-panel { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border: 1px solid #e2e8f0; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        body { background-color: #f8fafc; font-family: 'Inter', sans-serif; }
         .loading-spin { animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useMemo, useCallback } = React;
-
-        // --- SENİN ÖZEL AYARLARIN ---
+        const { useState, useEffect } = React;
         const GATEWAY_URL = "https://n8n.ittyazilim.com/webhook/fismatik-gateway";
 
-        // --- API YARDIMCISI (n8n İLE KONUŞUR) ---
         const apiCall = async (action, payload = {}) => {
             const session_key = localStorage.getItem('fismatik_session_key') || "";
             const response = await fetch(GATEWAY_URL, {
@@ -45,124 +30,117 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action, payload, session_key })
             });
-            const data = await response.json();
-            if (data.ok === false) throw new Error(data.message || "İşlem başarısız");
-            return data;
+            return await response.json();
         };
 
-        const Icon = ({ name, size = 20, className }) => {
-            useEffect(() => { if (window.lucide) window.lucide.createIcons(); }, [name]);
-            return <i data-lucide={name} className={className} style={{ width: size, height: size }}></i>;
-        };
-
-        // --- ANA UYGULAMA ---
         const App = () => {
             const [user, setUser] = useState(null);
-            const [profile, setProfile] = useState(null);
             const [company, setCompany] = useState(null);
             const [receipts, setReceipts] = useState([]);
             const [view, setView] = useState('dashboard');
             const [loading, setLoading] = useState(true);
-            const [loginData, setLoginData] = useState({ email: '', password: '' });
+            const [loginForm, setLoginForm] = useState({ email: '', password: '' });
 
-            // Otomatik Giriş Kontrolü
             useEffect(() => {
-                const key = localStorage.getItem('fismatik_session_key');
-                if (key) loadInitialData();
-                else setLoading(false);
+                const checkAuth = async () => {
+                    const key = localStorage.getItem('fismatik_session_key');
+                    if (key) await loadData();
+                    else setLoading(false);
+                };
+                checkAuth();
             }, []);
 
-            const loadInitialData = async () => {
+            const loadData = async () => {
                 setLoading(true);
                 try {
                     const data = await apiCall('get_reports', { view: 'bootstrap' });
-                    setProfile(data.profile);
-                    setCompany(data.company);
-                    setUser({ email: data.profile.user_id }); // ID'yi email gibi sakla
-                    
-                    const resData = await apiCall('get_receipts');
-                    setReceipts(resData.receipts || []);
-                } catch (e) {
-                    localStorage.removeItem('fismatik_session_key');
-                    setUser(null);
-                } finally { setLoading(false); }
+                    if (data.ok) {
+                        setCompany(data.company);
+                        setUser(data.profile);
+                        const res = await apiCall('get_receipts');
+                        setReceipts(res.receipts || []);
+                    } else {
+                        localStorage.removeItem('fismatik_session_key');
+                    }
+                } catch (e) { console.error(e); }
+                finally { setLoading(false); }
             };
 
             const handleLogin = async (e) => {
                 e.preventDefault();
                 setLoading(true);
-                try {
-                    const res = await apiCall('login', loginData);
+                const res = await apiCall('login', loginForm);
+                if (res.session_key) {
                     localStorage.setItem('fismatik_session_key', res.session_key);
-                    await loadInitialData();
-                } catch (e) { alert(e.message); }
-                finally { setLoading(false); }
+                    await loadData();
+                } else {
+                    alert("Giriş başarısız: " + (res.message || "Bilinmeyen hata"));
+                    setLoading(false);
+                }
             };
 
-            if (loading) return <div className="min-h-screen grid place-items-center"><Icon name="loader-2" className="loading-spin text-primary" size={40} /></div>;
+            if (loading) return <div className="min-h-screen flex items-center justify-center">Yükleniyor...</div>;
 
             if (!user) return (
-                <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
-                    <form onSubmit={handleLogin} className="max-w-md w-full bg-white p-8 rounded-2xl shadow-xl border space-y-4">
-                        <div className="text-center pb-4"><h1 className="text-2xl font-bold text-primary">Fiş Fatura</h1><p className="text-slate-500">Kendi Sunucun, Kendi Verin</p></div>
-                        <input type="email" placeholder="E-posta" className="w-full p-2 border rounded" required value={loginData.email} onChange={e => setLoginData({...loginData, email: e.target.value})} />
-                        <input type="password" placeholder="Şifre" className="w-full p-2 border rounded" required value={loginData.password} onChange={e => setLoginData({...loginData, password: e.target.value})} />
-                        <button className="w-full bg-primary text-white py-2 rounded font-bold hover:bg-blue-700">Giriş Yap</button>
+                <div className="min-h-screen flex items-center justify-center p-4">
+                    <form onSubmit={handleLogin} className="max-w-md w-full bg-white p-8 rounded-2xl shadow-lg border space-y-4">
+                        <h1 className="text-2xl font-bold text-blue-600 text-center">Fiş Fatura Giriş</h1>
+                        <input type="email" placeholder="E-posta" className="w-full p-3 border rounded-lg" value={loginForm.email} onChange={e => setLoginForm({...loginForm, email: e.target.value})} required />
+                        <input type="password" placeholder="Şifre" className="w-full p-3 border rounded-lg" value={loginForm.password} onChange={e => setLoginForm({...loginForm, password: e.target.value})} required />
+                        <button className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 transition">Giriş Yap</button>
                     </form>
                 </div>
             );
 
             return (
-                <div className="min-h-screen flex flex-col md:flex-row">
-                    <aside className="w-64 bg-white border-r p-6 space-y-4">
-                        <div className="font-bold text-xl text-primary border-b pb-4">Fiş Fatura</div>
+                <div className="min-h-screen flex">
+                    <aside className="w-64 bg-slate-900 text-white p-6 space-y-6">
+                        <div className="text-xl font-bold border-b border-slate-700 pb-4">Fiş Fatura</div>
                         <nav className="space-y-2">
-                            <button onClick={() => setView('dashboard')} className={`w-full text-left p-2 rounded ${view === 'dashboard' ? 'bg-blue-50 text-primary' : ''}`}>Genel Bakış</button>
-                            <button onClick={() => setView('receipts')} className={`w-full text-left p-2 rounded ${view === 'receipts' ? 'bg-blue-50 text-primary' : ''}`}>Fişlerim</button>
+                            <button onClick={() => setView('dashboard')} className={`w-full text-left p-3 rounded-lg ${view === 'dashboard' ? 'bg-blue-600' : 'hover:bg-slate-800'}`}>Genel Bakış</button>
+                            <button onClick={() => setView('receipts')} className={`w-full text-left p-3 rounded-lg ${view === 'receipts' ? 'bg-blue-600' : 'hover:bg-slate-800'}`}>Fişlerim</button>
                         </nav>
-                        <div className="pt-10"><button onClick={() => { localStorage.removeItem('fismatik_session_key'); window.location.reload(); }} className="text-red-500 text-sm">Çıkış Yap</button></div>
+                        <button onClick={() => { localStorage.clear(); window.location.reload(); }} className="text-red-400 text-sm mt-10">Çıkış Yap</button>
                     </aside>
-                    <main className="flex-1 p-8">
-                        <header className="mb-8">
-                            <h2 className="text-2xl font-bold">{company?.name || 'Şirketim'}</h2>
-                            <p className="text-slate-500">Limit: {company?.used} / {company?.limit}</p>
+                    <main className="flex-1 p-10 space-y-8">
+                        <header className="flex justify-between items-center">
+                            <div>
+                                <h2 className="text-3xl font-bold text-slate-800">{company?.name || 'Hoş Geldiniz'}</h2>
+                                <p className="text-slate-500">Kullanım: {company?.used || 0} / {company?.limit || 100}</p>
+                            </div>
                         </header>
-                        
+
                         {view === 'dashboard' ? (
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                <div className="bg-white p-6 rounded-xl border shadow-sm">
-                                    <h3 className="text-slate-500 text-sm">Toplam Fiş</h3>
-                                    <p className="text-3xl font-bold">{receipts.length}</p>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <div className="bg-white p-8 rounded-2xl border shadow-sm">
+                                    <h3 className="text-slate-400 text-sm font-semibold uppercase">Toplam Kayıtlı Fiş</h3>
+                                    <p className="text-5xl font-bold text-slate-900 mt-2">{receipts.length}</p>
                                 </div>
-                                <div className="bg-white p-6 rounded-xl border shadow-sm col-span-2">
-                                    <h3 className="font-bold mb-4">Son Fişler</h3>
-                                    <table className="w-full text-sm text-left">
-                                        <thead><tr className="text-slate-400"><th>Tarih</th><th>İşletme</th><th>Tutar</th></tr></thead>
-                                        <tbody>
-                                            {receipts.slice(0, 5).map(r => (
-                                                <tr key={r.id} className="border-t">
-                                                    <td className="py-2">{new Date(r.tarih).toLocaleDateString('tr-TR')}</td>
-                                                    <td className="font-medium">{r.isletme_adi}</td>
-                                                    <td className="font-bold">{r.toplam_tutar} ₺</td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
+                                <div className="bg-white p-8 rounded-2xl border shadow-sm">
+                                    <h3 className="font-bold text-slate-800 mb-4">Son 5 Hareket</h3>
+                                    <div className="space-y-3">
+                                        {receipts.slice(0, 5).map(r => (
+                                            <div key={r.id} className="flex justify-between border-b pb-2 text-sm">
+                                                <span>{r.isletme_adi}</span>
+                                                <span className="font-bold">{r.toplam_tutar} ₺</span>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
                             </div>
                         ) : (
-                            <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+                            <div className="bg-white rounded-2xl border shadow-sm overflow-hidden">
                                 <table className="w-full text-left">
-                                    <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+                                    <thead className="bg-slate-50 border-b">
                                         <tr><th className="p-4">Tarih</th><th className="p-4">İşletme</th><th className="p-4 text-right">Tutar</th><th className="p-4">Durum</th></tr>
                                     </thead>
                                     <tbody className="divide-y">
                                         {receipts.map(r => (
-                                            <tr key={r.id} className="hover:bg-slate-50">
-                                                <td className="p-4 text-sm">{new Date(r.tarih).toLocaleDateString('tr-TR')}</td>
+                                            <tr key={r.id} className="hover:bg-blue-50/30">
+                                                <td className="p-4">{new Date(r.tarih).toLocaleDateString('tr-TR')}</td>
                                                 <td className="p-4 font-medium">{r.isletme_adi}</td>
                                                 <td className="p-4 text-right font-bold">{r.toplam_tutar} ₺</td>
-                                                <td className="p-4"><span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded text-xs">{r.durum}</span></td>
+                                                <td className="p-4"><span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold">{r.durum}</span></td>
                                             </tr>
                                         ))}
                                     </tbody>
