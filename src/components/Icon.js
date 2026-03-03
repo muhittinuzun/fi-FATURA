@@ -1,29 +1,57 @@
-function Icon({ name, size = 16, className = "" }) {
-    const iconRef = React.useRef(null);
+function resolveLucideIcon(name) {
+  const icons = window.lucide?.icons;
+  if (!icons || !name) return null;
 
-    React.useEffect(() => {
-        if (iconRef.current && window.lucide) {
-            window.lucide.createIcons({
-                attrs: {
-                    class: className,
-                    width: size,
-                    height: size,
-                    "stroke-width": 2,
-                },
-                nameAttr: "data-lucide",
-                icons: {
-                    [name]: true
-                }
-            });
-        }
-    }, [name, size, className]);
+  const raw = String(name).trim();
+  const kebab = raw
+    .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
+    .replace(/\s+/g, "-")
+    .toLowerCase();
+  const pascal = kebab
+    .split("-")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join("");
 
-    // Note: Lucide React usually uses a different approach, 
-    // but in a standalone Babel environment with UMD Lucide, 
-    // this manual approach or using a data-lucide attribute is common.
-    // We'll use the data-lucide attribute which is standard for Lucide UMD.
+  return (
+    icons[raw] ||
+    icons[kebab] ||
+    icons[pascal] ||
+    icons[raw.toLowerCase()] ||
+    null
+  );
+}
 
-    return <i data-lucide={name} style={{ width: size, height: size }} className={className}></i>;
+function Icon({ name, size = 16, className = "", strokeWidth = 2 }) {
+  const iconNode = React.useMemo(() => resolveLucideIcon(name), [name]);
+
+  const svgMarkup = React.useMemo(() => {
+    if (!iconNode?.toSvg) return "";
+    return iconNode.toSvg({
+      width: size,
+      height: size,
+      class: className,
+      "stroke-width": strokeWidth,
+    });
+  }, [iconNode, size, className, strokeWidth]);
+
+  if (!svgMarkup) {
+    return (
+      <span
+        className={className}
+        style={{ width: size, height: size, display: "inline-block" }}
+        aria-hidden="true"
+      />
+    );
+  }
+
+  return (
+    <span
+      className="inline-flex items-center justify-center"
+      aria-hidden="true"
+      dangerouslySetInnerHTML={{ __html: svgMarkup }}
+    />
+  );
 }
 
 window.Icon = Icon;

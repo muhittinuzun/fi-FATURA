@@ -1,174 +1,120 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fiş Fatura - Akıllı Müşteri Paneli</title>
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <script>
-        tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter', 'sans-serif'] }, colors: { primary: '#2563eb', secondary: '#1e293b', ai: '#8b5cf6' } } } }
-    </script>
-    <style>
-        body { background-color: #f8fafc; }
-        .glass-panel { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border: 1px solid #e2e8f0; }
-        .loading-spin { animation: spin 1s linear infinite; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .report-page { background: white; padding: 40px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-width: 210mm; margin: 0 auto; }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fismatik SaaS Panel</title>
+
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <script src="https://unpkg.com/lucide@0.263.1/dist/umd/lucide.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ["Inter", "sans-serif"] },
+          colors: {
+            brand: "#2563eb",
+            dark: "#0f172a",
+            accent: "#7c3aed"
+          }
+        }
+      }
+    };
+  </script>
+
+  <style>
+    body { background: #f8fafc; }
+    .lucide { display: inline-block; vertical-align: middle; }
+  </style>
 </head>
-<body>
-    <div id="root"></div>
 
-    <script type="text/babel">
-        const { useState, useEffect, useMemo, useCallback } = React;
-        const GATEWAY_URL = "https://n8n.ittyazilim.com/webhook/fismatik-gateway";
+<body class="font-sans text-slate-800">
+  <div id="root"></div>
 
-        // --- MERKEZİ API ÇAĞRISI (n8n UYUMLU) ---
-        const apiCall = async (action, payload = {}) => {
-            const session_key = localStorage.getItem('fismatik_session_key') || "";
-            try {
-                const response = await fetch(GATEWAY_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action, payload, session_key })
-                });
-                const data = await response.json();
-                if (data.ok === false) throw new Error(data.message || "İşlem başarısız");
-                return data;
-            } catch (err) { console.error("API Hatası:", err); throw err; }
-        };
+  <!-- Zero-build: config + api -->
+  <script type="text/babel" src="./src/config.js"></script>
+  <script type="text/babel" src="./src/utils/format.js"></script>
+  <script type="text/babel" src="./src/api.js"></script>
 
-        const Icon = ({ name, size = 20, className }) => {
-            useEffect(() => { if (window.lucide) window.lucide.createIcons(); }, [name]);
-            return <i data-lucide={name} className={className} style={{ width: size, height: size, display: 'inline-block' }}></i>;
-        };
+  <!-- Zero-build: components -->
+  <script type="text/babel" src="./src/components/Icon.js"></script>
+  <script type="text/babel" src="./src/components/Header.js"></script>
+  <script type="text/babel" src="./src/components/Sidebar.js"></script>
+  <script type="text/babel" src="./src/components/ProgressBar.js"></script>
+  <script type="text/babel" src="./src/components/SupportBanner.js"></script>
+  <script type="text/babel" src="./src/components/ReceiptTable.js"></script>
+  <script type="text/babel" src="./src/components/BillingSection.js"></script>
 
-        // --- DİNAMİK BİLEŞENLER (SENİN TASARIMIN) ---
-        
-        const StatCard = ({ title, value, icon, color, bg }) => (
-            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
-                <div className={`p-4 rounded-full ${bg} ${color}`}><Icon name={icon} size={24} /></div>
-                <div><p className="text-slate-500 text-sm font-medium">{title}</p><p className="text-2xl font-bold text-slate-800">{value}</p></div>
-            </div>
-        );
+  <!-- Zero-build: pages -->
+  <script type="text/babel" src="./src/pages/CustomerDashboard.js"></script>
+  <script type="text/babel" src="./src/pages/ReportsPage.js"></script>
+  <script type="text/babel" src="./src/pages/ReportsPageV2.js"></script>
+  <script type="text/babel" src="./src/pages/SubscriptionPage.js"></script>
+  <script type="text/babel" src="./src/pages/AdminDashboard.js"></script>
+  <script type="text/babel" src="./src/pages/ReceiptsPage.js"></script>
+  <script type="text/babel" src="./src/pages/TeamPage.js"></script>
+  <script type="text/babel" src="./src/pages/SettingsPage.js"></script>
+  <script type="text/babel" src="./src/pages/AboutPage.js"></script>
 
-        // --- ANA UYGULAMA ---
-        const App = () => {
-            const [user, setUser] = useState(null);
-            const [profile, setProfile] = useState(null);
-            const [company, setCompany] = useState(null);
-            const [receipts, setReceipts] = useState([]);
-            const [loading, setLoading] = useState(true);
-            const [view, setView] = useState('dashboard');
-            const [loginForm, setLoginForm] = useState({ email: '', password: '' });
+  <!-- App bootstrap -->
+  <script type="text/babel" src="./src/App.js"></script>
+  <script type="text/babel" src="./src/main.js"></script>
 
-            const loadData = useCallback(async () => {
-                setLoading(true);
-                try {
-                    const data = await apiCall('get_reports', { view: 'bootstrap' });
-                    setProfile(data.profile);
-                    setCompany(data.company);
-                    setUser({ email: data.profile.user_id });
-                    
-                    const res = await apiCall('get_receipts');
-                    setReceipts(res.receipts || []);
-                } catch (e) { localStorage.removeItem('fismatik_session_key'); setUser(null); }
-                finally { setLoading(false); }
-            }, []);
+  <script>
+    (function initSafeLucideRefresh() {
+      var refreshQueued = false;
+      var refreshLocked = false;
 
-            useEffect(() => {
-                const key = localStorage.getItem('fismatik_session_key');
-                if (key) loadData(); else setLoading(false);
-            }, [loadData]);
+      function runCreateIcons() {
+        if (!window.lucide || typeof window.lucide.createIcons !== "function") {
+          return;
+        }
 
-            const handleLogin = async (e) => {
-                e.preventDefault();
-                setLoading(true);
-                try {
-                    const res = await apiCall('login', loginForm);
-                    localStorage.setItem('fismatik_session_key', res.session_key);
-                    await loadData();
-                } catch (e) { alert("Hata: " + e.message); setLoading(false); }
-            };
+        if (refreshLocked) {
+          refreshQueued = true;
+          return;
+        }
 
-            if (loading) return <div className="min-h-screen grid place-items-center bg-slate-50"><Icon name="loader-2" className="loading-spin text-primary" size={48} /></div>;
+        refreshLocked = true;
+        try {
+          window.lucide.createIcons();
+        } catch (err) {
+          if (err && err.name !== "NotFoundError") {
+            console.warn("Lucide createIcons hatasi:", err);
+          }
+        } finally {
+          refreshLocked = false;
+          if (refreshQueued) {
+            refreshQueued = false;
+            requestAnimationFrame(runCreateIcons);
+          }
+        }
+      }
 
-            if (!user) return (
-                <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
-                    <form onSubmit={handleLogin} className="max-w-md w-full bg-white p-8 rounded-2xl shadow-xl border space-y-4 animate-in fade-in zoom-in duration-300">
-                        <div className="text-center pb-4"><h1 className="text-3xl font-bold text-primary">Fiş Fatura</h1><p className="text-slate-500 mt-2">Müşteri Paneli Girişi</p></div>
-                        <input type="email" placeholder="E-posta" className="w-full p-3 border rounded-lg" required value={loginForm.email} onChange={e => setLoginForm({...loginForm, email: e.target.value})} />
-                        <input type="password" placeholder="Şifre" className="w-full p-3 border rounded-lg" required value={loginForm.password} onChange={e => setLoginForm({...loginForm, password: e.target.value})} />
-                        <button className="w-full bg-primary text-white py-3 rounded-lg font-bold hover:bg-blue-700 transition shadow-lg">Giriş Yap</button>
-                    </form>
-                </div>
-            );
+      window.refreshIcons = function refreshIcons() {
+        if (typeof requestAnimationFrame === "function") {
+          requestAnimationFrame(runCreateIcons);
+        } else {
+          setTimeout(runCreateIcons, 0);
+        }
+      };
 
-            return (
-                <div className="min-h-screen flex flex-col md:flex-row">
-                    <aside className="w-full md:w-64 bg-slate-900 text-white flex flex-col z-20">
-                        <div className="p-6 flex items-center gap-2 border-b border-slate-800"><Icon name="receipt" className="text-primary" size={28} /><span className="font-bold text-xl">Fiş Fatura</span></div>
-                        <nav className="flex-1 p-4 space-y-1">
-                            {['dashboard', 'receipts', 'reports', 'team', 'settings', 'about'].map(v => (
-                                <button key={v} onClick={() => setView(v)} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition ${view === v ? 'bg-primary text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
-                                    <Icon name={v === 'dashboard' ? 'layout-dashboard' : v === 'receipts' ? 'file-text' : v === 'reports' ? 'bar-chart-3' : v === 'team' ? 'users' : v === 'settings' ? 'settings' : 'info'} size={18} />
-                                    {v === 'dashboard' ? 'Genel Bakış' : v === 'receipts' ? 'Fişlerim' : v === 'reports' ? 'Raporlar' : v === 'team' ? 'Ekip Yönetimi' : v === 'settings' ? 'Ayarlar' : 'Hakkında'}
-                                </button>
-                            ))}
-                        </nav>
-                        <div className="p-4 border-t border-slate-800"><button onClick={() => { localStorage.clear(); window.location.reload(); }} className="w-full flex items-center gap-2 text-red-400 text-sm hover:bg-red-900/20 p-2 rounded transition"><Icon name="log-out" size={16} /> Güvenli Çıkış</button></div>
-                    </aside>
-                    <main className="flex-1 p-8 overflow-y-auto h-screen bg-slate-50">
-                        <header className="mb-10 flex justify-between items-end">
-                            <div><h2 className="text-3xl font-bold text-slate-800">{company?.name || 'Şirket Paneli'}</h2><p className="text-slate-500 font-medium">Kullanım: {company?.used || 0} / {company?.limit || 100}</p></div>
-                            <div className="text-right hidden md:block text-xs text-slate-400 uppercase font-bold tracking-wider">Hoş Geldiniz, {profile?.role || 'Kullanıcı'}</div>
-                        </header>
-
-                        {view === 'dashboard' && (
-                            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                    <StatCard title="Toplam Harcama" value={receipts.reduce((a,b)=>a+Number(b.toplam_tutar), 0).toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' })} icon="wallet" color="text-green-600" bg="bg-green-50" />
-                                    <StatCard title="Toplam Fiş" value={receipts.length} icon="file-stack" color="text-blue-600" bg="bg-blue-50" />
-                                    <StatCard title="Bekleyen İşlem" value={receipts.filter(r=>r.durum==='beklemede').length} icon="clock" color="text-orange-600" bg="bg-orange-50" />
-                                </div>
-                                <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm"><h3 className="font-bold text-lg mb-6 flex items-center gap-2"><Icon name="history" className="text-primary" /> Son Hareketler</h3>
-                                    <table className="w-full text-sm text-left"><thead className="text-slate-400 uppercase text-xs border-b pb-2"><tr><th>Tarih</th><th>İşletme</th><th className="text-right">Tutar</th></tr></thead>
-                                        <tbody className="divide-y">{receipts.slice(0, 5).map(r => (<tr key={r.id} className="hover:bg-slate-50"><td className="py-4">{new Date(r.tarih).toLocaleDateString('tr-TR')}</td><td className="font-semibold text-slate-700">{r.isletme_adi}</td><td className="text-right font-bold text-primary">{r.toplam_tutar} ₺</td></tr>))}</tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        )}
-
-                        {view === 'receipts' && (
-                            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden animate-in fade-in duration-300">
-                                <table className="w-full text-left text-sm"><thead className="bg-slate-50 border-b"><tr><th className="p-4">Tarih</th><th className="p-4">İşletme</th><th className="p-4">Kategori</th><th className="p-4 text-right">Tutar</th><th className="p-4">Durum</th></tr></thead>
-                                    <tbody className="divide-y">{receipts.map(r => (<tr key={r.id} className="hover:bg-blue-50/30 transition"><td className="p-4">{new Date(r.tarih).toLocaleDateString('tr-TR')}</td><td className="p-4 font-bold text-slate-700">{r.isletme_adi}</td><td className="p-4 text-slate-500">{r.kategori}</td><td className="p-4 text-right font-bold text-primary">{r.toplam_tutar} ₺</td><td className="p-4"><span className={`px-3 py-1 rounded-full text-xs font-bold ${r.durum === 'onaylandi' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>{r.durum}</span></td></tr>))}</tbody>
-                                </table>
-                            </div>
-                        )}
-                        
-                        {/* Diğer görünümler (reports, team vb.) için n8n API bağlantıları hazırlandı */}
-                        {['reports', 'team', 'settings', 'about'].includes(view) && (
-                            <div className="p-20 text-center bg-white rounded-2xl border border-dashed text-slate-400">
-                                <Icon name="construction" size={48} className="mx-auto mb-4" />
-                                <h3 className="text-lg font-bold">Bu Bölüm n8n Verisine Bağlı</h3>
-                                <p>Tüm SQL Engine entegrasyonu tamamlandı, sayfayı yenilediğinizde aktif olacaktır.</p>
-                            </div>
-                        )}
-                    </main>
-                </div>
-            );
-        };
-
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
-    </script>
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", window.refreshIcons, { once: true });
+      } else {
+        window.refreshIcons();
+      }
+    })();
+  </script>
 </body>
 </html>
