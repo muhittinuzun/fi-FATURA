@@ -2,13 +2,11 @@ function App() {
   const {
     adminDashboardRequest,
     bootstrapRequest,
-    checkQuotaRequest,
     clearSessionKey,
     fetchReceipts,
     getSessionKey,
     loginRequest,
     registerRequest,
-    uploadReceiptRequest,
     forgotPasswordRequest
   } = window;
   const [profile, setProfile] = React.useState(null);
@@ -27,7 +25,6 @@ function App() {
   const [forgotEmail, setForgotEmail] = React.useState("");
   const [forgotMessage, setForgotMessage] = React.useState("");
   const [forgotLoading, setForgotLoading] = React.useState(false);
-  const [uploading, setUploading] = React.useState(false);
   const [sessionKey, setSessionKeyState] = React.useState(getSessionKey());
 
   const isSuperAdmin = profile?.is_super_admin === true || (profile?.role === "admin" && !profile?.company_id);
@@ -118,21 +115,6 @@ function App() {
       setError(err.message || "Sifremi unuttum akisi baslatilamadi.");
     } finally {
       setForgotLoading(false);
-    }
-  };
-
-  const handleUploadReceipt = async (payload) => {
-    setUploading(true);
-    setError("");
-    try {
-      const quota = await checkQuotaRequest();
-      if (!quota?.allow) throw new Error("Kota dolu. Lutfen destek ile iletisime gecin.");
-      await uploadReceiptRequest(payload);
-      await loadData();
-    } catch (err) {
-      setError(err.message || "Fis yukleme basarisiz.");
-    } finally {
-      setUploading(false);
     }
   };
 
@@ -287,7 +269,12 @@ function App() {
   }
 
   let page = null;
-  if (activeView === "reports") page = <ReportsPage profile={profile} company={company} />;
+  if (activeView === "reports") {
+    const ActiveReportsPage = window.ReportsPageV2 || window.ReportsPage;
+    page = ActiveReportsPage
+      ? <ActiveReportsPage profile={profile} company={company} />
+      : <p className="text-sm text-red-600">Rapor sayfasi yuklenemedi.</p>;
+  }
   if (activeView === "receipts") page = <ReceiptsPage profile={profile} />;
   if (activeView === "team") page = <TeamPage profile={profile} user={profile} />;
   if (activeView === "settings") page = <SettingsPage profile={profile} />;
@@ -304,21 +291,19 @@ function App() {
         company={company}
         usageLogs={usageLogs}
         receipts={receipts}
-        onUploadReceipt={handleUploadReceipt}
         onUpdateReceipt={handleUpdateReceipt}
         onUpdateStatus={handleUpdateStatus}
         onDeleteReceipt={handleDeleteReceipt}
         receiptTableSimple={true}
         onRefreshReceipts={loadData}
         profile={profile}
-        uploading={uploading}
       />
     );
   }
 
   return (
     <div className="min-h-screen">
-      <Header companyName={company?.name || "Super Admin Paneli"} role={profile?.role || "-"} onLogout={handleLogout} />
+      <Header companyName={company?.company_name || company?.name || "Super Admin Paneli"} role={profile?.role || "-"} onLogout={handleLogout} />
       <div className="flex">
         <Sidebar
           activeView={activeView}

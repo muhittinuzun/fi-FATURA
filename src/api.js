@@ -40,8 +40,6 @@ const loginRequest = async (email, password) => {
 const registerRequest = async (payload) => gatewayRequest("register", payload, "");
 const bootstrapRequest = async () => gatewayRequest("get_reports", { view: "bootstrap" });
 const adminDashboardRequest = async () => gatewayRequest("get_reports", { view: "admin_dashboard" });
-const checkQuotaRequest = async () => gatewayRequest("check_quota", {});
-const uploadReceiptRequest = async (payload) => gatewayRequest("upload_receipt", payload);
 const forgotPasswordRequest = async (email) => gatewayRequest("forgot_password", { email }, "");
 
 window.getSessionKey = getSessionKey;
@@ -52,8 +50,6 @@ window.loginRequest = loginRequest;
 window.registerRequest = registerRequest;
 window.bootstrapRequest = bootstrapRequest;
 window.adminDashboardRequest = adminDashboardRequest;
-window.checkQuotaRequest = checkQuotaRequest;
-window.uploadReceiptRequest = uploadReceiptRequest;
 window.forgotPasswordRequest = forgotPasswordRequest;
 
 const normalizeReceiptsResponse = (raw) => {
