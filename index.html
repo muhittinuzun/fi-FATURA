@@ -1,72 +1,181 @@
 <!DOCTYPE html>
 <html lang="tr">
-
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Fişmatik SaaS Panel</title>
-
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-  <script src="https://unpkg.com/lucide@latest"></script>
-  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-
-
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: { sans: ["Inter", "sans-serif"] },
-          colors: {
-            brand: "#2563eb",
-            dark: "#0f172a",
-            accent: "#7c3aed"
-          }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fiş Fatura - Akıllı Müşteri Paneli</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: { primary: '#2563eb', secondary: '#1e293b', ai: '#8b5cf6' }
+                }
+            }
         }
-      }
-    };
-  </script>
-
-  <style>
-    body {
-      background: #f8fafc;
-    }
-  </style>
+    </script>
+    <style>
+        body { background-color: #f8fafc; }
+        .glass-panel { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border: 1px solid #e2e8f0; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .loading-spin { animation: spin 1s linear infinite; }
+    </style>
 </head>
+<body>
+    <div id="root"></div>
 
-<body class="font-sans text-slate-800">
-  <div id="root"></div>
-  <script type="text/babel" src="./src/config.js"></script>
-  <script type="text/babel" src="./src/utils/format.js"></script>
-  <script type="text/babel" src="./src/api.js"></script>
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, useCallback } = React;
 
-  <script type="text/babel" src="./src/components/Icon.js"></script>
-  <script type="text/babel" src="./src/components/Header.js"></script>
+        // --- SENİN ÖZEL AYARLARIN ---
+        const GATEWAY_URL = "https://n8n.ittyazilim.com/webhook/fismatik-gateway";
 
-  <script type="text/babel" src="./src/components/Sidebar.js"></script>
-  <script type="text/babel" src="./src/components/ProgressBar.js"></script>
-  <script type="text/babel" src="./src/components/SupportBanner.js"></script>
-  <script type="text/babel" src="./src/components/ReceiptTable.js"></script>
-  <script type="text/babel" src="./src/components/BillingSection.js"></script>
+        // --- API YARDIMCISI (n8n İLE KONUŞUR) ---
+        const apiCall = async (action, payload = {}) => {
+            const session_key = localStorage.getItem('fismatik_session_key') || "";
+            const response = await fetch(GATEWAY_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action, payload, session_key })
+            });
+            const data = await response.json();
+            if (data.ok === false) throw new Error(data.message || "İşlem başarısız");
+            return data;
+        };
 
-  <script type="text/babel" src="./src/pages/CustomerDashboard.js"></script>
-  <script type="text/babel" src="./src/pages/ReportsPageV2.js"></script>
-  <script type="text/babel" src="./src/pages/SubscriptionPage.js"></script>
-  <script type="text/babel" src="./src/pages/AdminDashboard.js"></script>
-  <script type="text/babel" src="./src/pages/ReceiptsPage.js"></script>
-  <script type="text/babel" src="./src/pages/TeamPage.js"></script>
-  <script type="text/babel" src="./src/pages/SettingsPage.js"></script>
-  <script type="text/babel" src="./src/pages/AboutPage.js"></script>
+        const Icon = ({ name, size = 20, className }) => {
+            useEffect(() => { if (window.lucide) window.lucide.createIcons(); }, [name]);
+            return <i data-lucide={name} className={className} style={{ width: size, height: size }}></i>;
+        };
 
-  <script type="text/babel" src="./src/App.js"></script>
-  <script type="text/babel" src="./src/main.js"></script>
+        // --- ANA UYGULAMA ---
+        const App = () => {
+            const [user, setUser] = useState(null);
+            const [profile, setProfile] = useState(null);
+            const [company, setCompany] = useState(null);
+            const [receipts, setReceipts] = useState([]);
+            const [view, setView] = useState('dashboard');
+            const [loading, setLoading] = useState(true);
+            const [loginData, setLoginData] = useState({ email: '', password: '' });
+
+            // Otomatik Giriş Kontrolü
+            useEffect(() => {
+                const key = localStorage.getItem('fismatik_session_key');
+                if (key) loadInitialData();
+                else setLoading(false);
+            }, []);
+
+            const loadInitialData = async () => {
+                setLoading(true);
+                try {
+                    const data = await apiCall('get_reports', { view: 'bootstrap' });
+                    setProfile(data.profile);
+                    setCompany(data.company);
+                    setUser({ email: data.profile.user_id }); // ID'yi email gibi sakla
+                    
+                    const resData = await apiCall('get_receipts');
+                    setReceipts(resData.receipts || []);
+                } catch (e) {
+                    localStorage.removeItem('fismatik_session_key');
+                    setUser(null);
+                } finally { setLoading(false); }
+            };
+
+            const handleLogin = async (e) => {
+                e.preventDefault();
+                setLoading(true);
+                try {
+                    const res = await apiCall('login', loginData);
+                    localStorage.setItem('fismatik_session_key', res.session_key);
+                    await loadInitialData();
+                } catch (e) { alert(e.message); }
+                finally { setLoading(false); }
+            };
+
+            if (loading) return <div className="min-h-screen grid place-items-center"><Icon name="loader-2" className="loading-spin text-primary" size={40} /></div>;
+
+            if (!user) return (
+                <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
+                    <form onSubmit={handleLogin} className="max-w-md w-full bg-white p-8 rounded-2xl shadow-xl border space-y-4">
+                        <div className="text-center pb-4"><h1 className="text-2xl font-bold text-primary">Fiş Fatura</h1><p className="text-slate-500">Kendi Sunucun, Kendi Verin</p></div>
+                        <input type="email" placeholder="E-posta" className="w-full p-2 border rounded" required value={loginData.email} onChange={e => setLoginData({...loginData, email: e.target.value})} />
+                        <input type="password" placeholder="Şifre" className="w-full p-2 border rounded" required value={loginData.password} onChange={e => setLoginData({...loginData, password: e.target.value})} />
+                        <button className="w-full bg-primary text-white py-2 rounded font-bold hover:bg-blue-700">Giriş Yap</button>
+                    </form>
+                </div>
+            );
+
+            return (
+                <div className="min-h-screen flex flex-col md:flex-row">
+                    <aside className="w-64 bg-white border-r p-6 space-y-4">
+                        <div className="font-bold text-xl text-primary border-b pb-4">Fiş Fatura</div>
+                        <nav className="space-y-2">
+                            <button onClick={() => setView('dashboard')} className={`w-full text-left p-2 rounded ${view === 'dashboard' ? 'bg-blue-50 text-primary' : ''}`}>Genel Bakış</button>
+                            <button onClick={() => setView('receipts')} className={`w-full text-left p-2 rounded ${view === 'receipts' ? 'bg-blue-50 text-primary' : ''}`}>Fişlerim</button>
+                        </nav>
+                        <div className="pt-10"><button onClick={() => { localStorage.removeItem('fismatik_session_key'); window.location.reload(); }} className="text-red-500 text-sm">Çıkış Yap</button></div>
+                    </aside>
+                    <main className="flex-1 p-8">
+                        <header className="mb-8">
+                            <h2 className="text-2xl font-bold">{company?.name || 'Şirketim'}</h2>
+                            <p className="text-slate-500">Limit: {company?.used} / {company?.limit}</p>
+                        </header>
+                        
+                        {view === 'dashboard' ? (
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <div className="bg-white p-6 rounded-xl border shadow-sm">
+                                    <h3 className="text-slate-500 text-sm">Toplam Fiş</h3>
+                                    <p className="text-3xl font-bold">{receipts.length}</p>
+                                </div>
+                                <div className="bg-white p-6 rounded-xl border shadow-sm col-span-2">
+                                    <h3 className="font-bold mb-4">Son Fişler</h3>
+                                    <table className="w-full text-sm text-left">
+                                        <thead><tr className="text-slate-400"><th>Tarih</th><th>İşletme</th><th>Tutar</th></tr></thead>
+                                        <tbody>
+                                            {receipts.slice(0, 5).map(r => (
+                                                <tr key={r.id} className="border-t">
+                                                    <td className="py-2">{new Date(r.tarih).toLocaleDateString('tr-TR')}</td>
+                                                    <td className="font-medium">{r.isletme_adi}</td>
+                                                    <td className="font-bold">{r.toplam_tutar} ₺</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+                                <table className="w-full text-left">
+                                    <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+                                        <tr><th className="p-4">Tarih</th><th className="p-4">İşletme</th><th className="p-4 text-right">Tutar</th><th className="p-4">Durum</th></tr>
+                                    </thead>
+                                    <tbody className="divide-y">
+                                        {receipts.map(r => (
+                                            <tr key={r.id} className="hover:bg-slate-50">
+                                                <td className="p-4 text-sm">{new Date(r.tarih).toLocaleDateString('tr-TR')}</td>
+                                                <td className="p-4 font-medium">{r.isletme_adi}</td>
+                                                <td className="p-4 text-right font-bold">{r.toplam_tutar} ₺</td>
+                                                <td className="p-4"><span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded text-xs">{r.durum}</span></td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </main>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
 </body>
-
 </html>
