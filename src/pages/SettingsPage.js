@@ -2,19 +2,53 @@ function MetadataManager({ table, title, icon, companyId }) {
   const [items, setItems] = React.useState([]);
   const [newValue, setNewValue] = React.useState("");
   const [loading, setLoading] = React.useState(false);
+  const [resolvedTable, setResolvedTable] = React.useState(table);
 
-  const parseItems = (data) => {
+  const parseItems = (data, keyHint) => {
+    if (Array.isArray(data)) return data;
     if (Array.isArray(data?.items)) return data.items;
     if (Array.isArray(data?.data)) return data.data;
-    if (Array.isArray(data)) return data;
+    if (Array.isArray(data?.rows)) return data.rows;
+    if (Array.isArray(data?.result)) return data.result;
+    if (Array.isArray(data?.result?.items)) return data.result.items;
+    if (Array.isArray(data?.result?.data)) return data.result.data;
+    if (keyHint && Array.isArray(data?.[keyHint])) return data[keyHint];
+    if (keyHint && Array.isArray(data?.result?.[keyHint])) return data.result[keyHint];
     return [];
+  };
+
+  const normalizedTableHints = React.useMemo(() => {
+    const hints = [table];
+    if (table === "categories") hints.push("category");
+    if (table === "projects") hints.push("project");
+    if (table === "company_cards") hints.push("company_card");
+    return hints;
+  }, [table]);
+
+  const normalizeItem = (item) => {
+    if (!item || typeof item !== "object") return { id: item, name: String(item ?? "") };
+    return {
+      ...item,
+      id: item.id ?? item.metadata_id ?? item.uuid ?? item.name,
+      name: item.name ?? item.category_name ?? item.project_name ?? item.card_alias ?? item.last_4_digits ?? "-"
+    };
   };
 
   const load = async () => {
     setLoading(true);
     try {
-      const data = await window.fetchMetadata(table);
-      setItems(parseItems(data));
+      let loaded = [];
+      let matchedTable = table;
+      for (const hint of normalizedTableHints) {
+        const data = await window.fetchMetadata(hint);
+        loaded = parseItems(data, hint);
+        if (loaded.length > 0) {
+          matchedTable = hint;
+          break;
+        }
+      }
+      setResolvedTable(matchedTable);
+      setItems(loaded.map(normalizeItem));
     } finally {
       setLoading(false);
     }
@@ -26,23 +60,24 @@ function MetadataManager({ table, title, icon, companyId }) {
 
   const add = async () => {
     if (!newValue) return;
-    const payload = table === "company_cards"
+    const targetTable = resolvedTable || normalizedTableHints[0];
+    const payload = targetTable === "company_cards"
       ? { last_4_digits: newValue, bank_name: "Kredi Kartı", card_alias: `Kart ${newValue}` }
       : { name: newValue };
-    await window.addMetadata(table, payload);
+    await window.addMetadata(targetTable, payload);
     setNewValue("");
     load();
   };
 
   const remove = async (id) => {
     if (!confirm("Silmek istediğinize emin misiniz?")) return;
-    await window.deleteMetadata(table, id);
+    await window.deleteMetadata(resolvedTable || normalizedTableHints[0], id);
     load();
   };
 
   const renderValue = (item) => {
-    if (table === "company_cards") return `${item.card_alias || "Kart"} (${item.last_4_digits || "-"})`;
-    if (table === "projects") return `${item.name || "-"}${item.code ? ` (${item.code})` : ""}`;
+    if (table === "company_cards") return `${item.card_alias || item.name || "Kart"} (${item.last_4_digits || "-"})`;
+    if (table === "projects") return `${item.name || item.project_name || "-"}${item.code ? ` (${item.code})` : ""}`;
     return item.name || "-";
   };
 

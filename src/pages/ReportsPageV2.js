@@ -253,4 +253,5 @@ function ReportsPage({ profile, company }) {
   );
 }
 
+window.ReportsPageV2 = ReportsPage;
 window.ReportsPage = ReportsPage;
