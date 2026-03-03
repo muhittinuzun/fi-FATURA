@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fişmatik SaaS Panel</title>
+
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ["Inter", "sans-serif"] },
+          colors: {
+            brand: "#2563eb",
+            dark: "#0f172a",
+            accent: "#7c3aed"
+          }
+        }
+      }
+    };
+  </script>
+
+  <style>
+    body {
+      background: #f8fafc;
+    }
+  </style>
+</head>
+
+<body class="font-sans text-slate-800">
+  <div id="root"></div>
+  <script type="text/babel" src="./src/config.js"></script>
+  <script type="text/babel" src="./src/utils/format.js"></script>
+  <script type="text/babel" src="./src/api.js"></script>
+
+  <script type="text/babel" src="./src/components/Icon.js"></script>
+  <script type="text/babel" src="./src/components/Header.js"></script>
+
+  <script type="text/babel" src="./src/components/Sidebar.js"></script>
+  <script type="text/babel" src="./src/components/ProgressBar.js"></script>
+  <script type="text/babel" src="./src/components/SupportBanner.js"></script>
+  <script type="text/babel" src="./src/components/ReceiptTable.js"></script>
+  <script type="text/babel" src="./src/components/BillingSection.js"></script>
+
+  <script type="text/babel" src="./src/pages/CustomerDashboard.js"></script>
+  <script type="text/babel" src="./src/pages/ReportsPageV2.js"></script>
+  <script type="text/babel" src="./src/pages/SubscriptionPage.js"></script>
+  <script type="text/babel" src="./src/pages/AdminDashboard.js"></script>
+  <script type="text/babel" src="./src/pages/ReceiptsPage.js"></script>
+  <script type="text/babel" src="./src/pages/TeamPage.js"></script>
+  <script type="text/babel" src="./src/pages/SettingsPage.js"></script>
+  <script type="text/babel" src="./src/pages/AboutPage.js"></script>
+
+  <script type="text/babel" src="./src/App.js"></script>
+  <script type="text/babel" src="./src/main.js"></script>
+</body>
+
+</html>

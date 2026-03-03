@@ -1,0 +1,151 @@
+{
+  "name": "03 - Kayit ve Maliyet Loglama",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "save-receipt-and-cost",
+        "httpMethod": "POST"
+      },
+      "id": "s1",
+      "name": "Webhook In",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -820,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into receipts (company_id, user_id, business_name, category, total_amount, image_url, ocr_raw_text, ai_json) values ($1, $2, $3, $4, $5, $6, $7, $8::jsonb) returning id;",
+        "additionalFields": {
+          "queryParams": "={{ [$json.body.company_id, $json.body.user_id, $json.body.business_name, $json.body.category, $json.body.total_amount, $json.body.image_url, $json.body.ocr_raw_text || '', JSON.stringify($json.body.ai_json || {})] }}"
+        }
+      },
+      "id": "s2",
+      "name": "PG Insert Receipt",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        -560,
+        -20
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "POSTGRES_CREDENTIAL_ID",
+          "name": "fismatik-postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into api_usage_logs (company_id, process_type, token_count, estimated_cost) values ($1, $2::process_type_enum, $3, $4) returning id;",
+        "additionalFields": {
+          "queryParams": "={{ [$json.body.company_id, $json.body.process_type || 'Gemini', Number($json.body.token_count || 0), Number($json.body.estimated_cost || 0)] }}"
+        }
+      },
+      "id": "s3",
+      "name": "PG Insert Usage Log",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        -300,
+        -20
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "POSTGRES_CREDENTIAL_ID",
+          "name": "fismatik-postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select increment_company_usage($1, 1);",
+        "additionalFields": {
+          "queryParams": "={{ [$json.body.company_id] }}"
+        }
+      },
+      "id": "s4",
+      "name": "PG Increase Usage Counter",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        -40,
+        -20
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "POSTGRES_CREDENTIAL_ID",
+          "name": "fismatik-postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"status\":\"saved\",\"company_id\":\"{{$json.body.company_id}}\"}"
+      },
+      "id": "s5",
+      "name": "Respond Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        220,
+        -20
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook In": {
+      "main": [
+        [
+          {
+            "node": "PG Insert Receipt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PG Insert Receipt": {
+      "main": [
+        [
+          {
+            "node": "PG Insert Usage Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PG Insert Usage Log": {
+      "main": [
+        [
+          {
+            "node": "PG Increase Usage Counter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PG Increase Usage Counter": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "versionId": "save-log-flow-v2-postgres"
+}

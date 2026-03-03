@@ -1,0 +1,235 @@
+{
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "030dfb1b-49f9-4dc8-82e3-98b884f3065c",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 2.1,
+            "position": [
+                -816,
+                -112
+            ],
+            "id": "6b1b7a67-2b2c-4592-b6ef-dec2201b0a51",
+            "name": "taily yeni kayıt",
+            "webhookId": "030dfb1b-49f9-4dc8-82e3-98b884f3065c"
+        },
+        {
+            "parameters": {
+                "jsCode": "// 1. Gelen veriyi güvenli bir şekilde al\nconst inputItem = $input.first();\nconst inputBody = inputItem ? inputItem.json.body : {};\n\nlet parsedBody = inputBody;\n\n// 2. 'no-cors' modunda veri string gelirse JSON'a çevir\nif (typeof inputBody === 'string') {\n    try {\n        parsedBody = JSON.parse(inputBody);\n    } catch (e) {\n        console.log(\"JSON Parse Hatası:\", e);\n        parsedBody = {}; \n    }\n}\n\n// parsedBody null veya undefined ise boş obje yap (Hata Önleyici)\nif (!parsedBody) {\n    parsedBody = {};\n}\n\nlet data = {};\n\n// 3. Veri Kaynağını Ayırt Et\n// A) TALLY FORMU\nif (parsedBody.data && Array.isArray(parsedBody.data.fields)) {\n    parsedBody.data.fields.forEach(field => {\n        if (field.label) {\n            data[field.label] = field.value;\n        }\n    });\n} \n// B) FİŞMATİK PANELİ\nelse {\n    data = parsedBody;\n}\n\n// 4. Telefon Numarası Formatlama\nconst normalizePhone = (phone) => {\n    if (!phone) return \"\";\n    let clean = phone.toString().replace(/\\D/g, ''); \n    if (clean.startsWith('0')) clean = clean.substring(1);\n    if (clean.startsWith('90') && clean.length > 10) clean = clean.substring(2);\n    if (clean.length === 10) return \"+90\" + clean;\n    return \"+\" + clean;\n};\n\n// 5. Çıktı (Mapping) - data[...] erişimlerinde hata vermez\nreturn {\n    json: {\n        telegram_id: data['telegram_id'] || \"\", \n        \n        // İsimlendirme farklarını yönet (Tally vs Panel)\n        first_name: data['Adınız'] || data['first_name'] || \"\",\n        last_name: data['Soyadınız'] || data['last_name'] || \"\",\n        email: data['Mail Adresiniz'] || data['email'] || \"\",\n        \n        phone: normalizePhone(data['Telefon Numaranız'] || data['phone']),\n        \n        company_name: data['Şirketiniz'] || data['company_name'] || \"\",\n        tax_office: data['Vergi Dairesi'] || data['tax_office'] || \"\",\n        tax_no: data['Vergi Numarası'] || data['tax_no'] || \"\",\n        \n        password: data['password'] || Math.random().toString(36).slice(-8),\n        \n        source: parsedBody.data ? 'Tally Form' : 'FişMatik Panel'\n    }\n};"
+            },
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                -592,
+                -112
+            ],
+            "id": "f7c22b12-e663-4f96-90e3-1aab2addab28",
+            "name": "form verilerini temizle"
+        },
+        {
+            "parameters": {
+                "jsCode": "// 1. ADIM: Şirket ID'sini al (Önceki Supabase düğümünden)\nconst companyId = $input.first().json.id;\n\n// 2. ADIM: Form verisini al ('form verilerini temizle' düğümünden)\n// Artık veriler standart formatta (first_name, last_name vb.) geliyor.\nconst formData = $('form verilerini temizle').first().json; \n\nconst usersList = [];\n\n// A) YÖNETİCİYİ EKLE (Formu Dolduran)\nconst ad = formData.first_name || \"\";\nconst soyad = formData.last_name || \"\";\nconst tel = formData.phone;\nconst mail = formData.email;\n\n// Yöneticiyi listeye ekle\n// (Telefon veya Mail varsa geçerli sayıyoruz)\nif (tel || mail) {\n    usersList.push({\n        company_id: companyId,\n        full_name: `${ad} ${soyad}`.trim(), \n        phone_number: tel,\n        email: mail, \n        telegram_id: formData.telegram_id || null,\n        role: 'admin',\n        // Şifreyi de taşıyalım, sonraki auth adımında lazım olabilir\n        password: formData.password \n    });\n}\n\n// B) EK PERSONELLERİ EKLE (Opsiyonel - Tally Uyumluluğu)\n// Eğer formData içinde 'personals' dizisi varsa işle, yoksa pas geç.\n// (Şu anki parser kodu personals'ı geçirmiyor olabilir, bu blok hata vermeden atlar)\nif (formData.personals && Array.isArray(formData.personals)) {\n    formData.personals.forEach(p => {\n        // --- GÜVENLİK FİLTRESİ ---\n        if (p.adSoyad && p.telefon) {\n            usersList.push({\n                company_id: companyId,\n                full_name: p.adSoyad,\n                phone_number: p.telefon,\n                email: null, // Personel maili yoksa null\n                telegram_id: null,\n                role: p.rol === 'Yönetici' ? 'admin' : 'user',\n                // Personel için geçici rastgele şifre (Auth kaydı yapılacaksa)\n                password: Math.random().toString(36).slice(-8)\n            });\n        }\n    });\n}\n\n// C) SON FİLTRE (Boş isimleri temizle)\nconst finalCleanList = usersList.filter(user => \n    user.full_name && user.full_name.trim() !== \"\"\n);\n\n// n8n formatında çıktı ver\nreturn finalCleanList.map(u => ({ json: u }));"
+            },
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                -192,
+                -112
+            ],
+            "id": "458640c4-40b0-467f-a054-f2a2c51e90bd",
+            "name": "kullanıcı bilgileirni al"
+        },
+        {
+            "parameters": {
+                "tableId": "companies",
+                "fieldsUi": {
+                    "fieldValues": [
+                        {
+                            "fieldId": "company_name",
+                            "fieldValue": "={{ $json.company_name || $json[\"Şirketiniz\"] || $json.body?.company_name || $json.body?.[\"Şirketiniz\"] || \"\" }}"
+                        },
+                        {
+                            "fieldId": "tax_office",
+                            "fieldValue": "={{ $json.tax_office || $json[\"Vergi Dairesi\"] || $json.body?.tax_office || $json.body?.[\"Vergi Dairesi\"] || \"\" }}"
+                        },
+                        {
+                            "fieldId": "tax_number",
+                            "fieldValue": "={{ $json.tax_no || $json[\"Vergi Numarası\"] || $json.body?.tax_no || $json.body?.[\"Vergi Numarası\"] || \"\" }}"
+                        },
+                        {
+                            "fieldId": "is_active",
+                            "fieldValue": "={{ false }}"
+                        },
+                        {
+                            "fieldId": "max_users",
+                            "fieldValue": "5"
+                        }
+                    ]
+                }
+            },
+            "type": "n8n-nodes-base.supabase",
+            "typeVersion": 1,
+            "position": [
+                -400,
+                -112
+            ],
+            "id": "41f4dac6-a491-4b22-832c-d43ea36d15ed",
+            "name": "Sirket Ekle",
+            "credentials": {
+                "supabaseApi": {
+                    "id": "3ZlBClCMHxbUdAF1",
+                    "name": "itt fişmatik saas"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "tableId": "users",
+                "fieldsUi": {
+                    "fieldValues": [
+                        {
+                            "fieldId": "company_id",
+                            "fieldValue": "={{ $json.company_id }}"
+                        },
+                        {
+                            "fieldId": "full_name",
+                            "fieldValue": "={{ $json.full_name }}"
+                        },
+                        {
+                            "fieldId": "role",
+                            "fieldValue": "={{ $json.role }}"
+                        },
+                        {
+                            "fieldId": "phone_number",
+                            "fieldValue": "={{ $json.phone_number }}"
+                        },
+                        {
+                            "fieldId": "email",
+                            "fieldValue": "={{ $json.email }}"
+                        }
+                    ]
+                }
+            },
+            "type": "n8n-nodes-base.supabase",
+            "typeVersion": 1,
+            "position": [
+                16,
+                -112
+            ],
+            "id": "476460cc-51dc-4f34-a622-ad18d8e3d643",
+            "name": "Kullanıcıları Kaydet",
+            "credentials": {
+                "supabaseApi": {
+                    "id": "3ZlBClCMHxbUdAF1",
+                    "name": "itt fişmatik saas"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "chatId": "101298108",
+                "text": "=Yeni Kayıt: {{ $('Sirket Ekle').item.json.company_name }}\nYetkili: {{ $('form verilerini temizle').item.json.first_name }} {{ $('form verilerini temizle').item.json.last_name }}\nTel: {{ $('form verilerini temizle').item.json.phone }}\nMail: {{ $('form verilerini temizle').item.json.email }}\nKaynak: {{ $('form verilerini temizle').item.json.source }}",
+                "replyMarkup": "inlineKeyboard",
+                "inlineKeyboard": {
+                    "rows": [
+                        {
+                            "row": {
+                                "buttons": [
+                                    {
+                                        "text": "✅ Onayla ve Aktif Et",
+                                        "additionalFields": {
+                                            "callback_data": "=onay_{{ $('Sirket Ekle').item.json.id }}_{{ $('form verilerini temizle').item.json.telegram_id || 'web' }}"
+                                        }
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                },
+                "additionalFields": {
+                    "appendAttribution": false
+                }
+            },
+            "type": "n8n-nodes-base.telegram",
+            "typeVersion": 1.2,
+            "position": [
+                272,
+                -112
+            ],
+            "id": "3992af0b-6f3e-4b18-8a49-155d66290903",
+            "name": "Send a text message",
+            "webhookId": "13894792-2ed9-4381-91e6-a83a3830cfea",
+            "credentials": {
+                "telegramApi": {
+                    "id": "CFzJKjsFQ3QPP0Vt",
+                    "name": "ITTFİSMATİKBOT"
+                }
+            }
+        }
+    ],
+    "connections": {
+        "taily yeni kayıt": {
+            "main": [
+                [
+                    {
+                        "node": "form verilerini temizle",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "form verilerini temizle": {
+            "main": [
+                [
+                    {
+                        "node": "Sirket Ekle",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "kullanıcı bilgileirni al": {
+            "main": [
+                [
+                    {
+                        "node": "Kullanıcıları Kaydet",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Sirket Ekle": {
+            "main": [
+                [
+                    {
+                        "node": "kullanıcı bilgileirni al",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Kullanıcıları Kaydet": {
+            "main": [
+                [
+                    {
+                        "node": "Send a text message",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "pinData": {},
+    "meta": {
+        "templateCredsSetupCompleted": true,
+        "instanceId": "6f076ed0cacd38fc2ba8ffa68ee2e157985f657f98d37b30667e4135afe7d023"
+    }
+}

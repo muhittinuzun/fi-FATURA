@@ -1,0 +1,188 @@
+{
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "alt-kullanici-ekle",
+                "options": {}
+            },
+            "id": "70565934-d23a-491b-a910-c35b7c8aa4cf",
+            "name": "Webhook (Alt Kullanıcı Ekle)",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 2,
+            "position": [
+                -336,
+                16
+            ],
+            "webhookId": "alt-kullanici-ekle"
+        },
+        {
+            "parameters": {
+                "jsCode": "// 1. Webhook'tan gelen veriyi al\nlet body = $input.first().json.body || {};\n\n// 2. 'no-cors' modunda veri bazen string (metin) olarak gelir.\n// Eğer string ise JSON'a çeviriyoruz.\nif (typeof body === 'string') {\n    try {\n        body = JSON.parse(body);\n    } catch (e) {\n        console.log(\"JSON Parse Hatası:\", e);\n        body = {};\n    }\n}\n\n// 3. İsim Ayıklama (Ad Soyad birleşik gelirse ayır)\nlet firstName = body.Adınız || body.first_name || \"\";\nlet lastName = body.Soyadınız || body.last_name || \"\";\n\nif (!firstName && body.full_name) {\n    const parts = body.full_name.split(' ');\n    if (parts.length > 1) {\n        lastName = parts.pop();\n        firstName = parts.join(' ');\n    } else {\n        firstName = body.full_name;\n    }\n}\n\n// 4. Verileri hazırla ve sonraki düğümlere aktar\nreturn {\n    json: {\n        company_id: body.company_id,\n        email: body.email,\n        full_name: body.full_name || `${firstName} ${lastName}`.trim(),\n        first_name: firstName,\n        last_name: lastName,\n        // Şifre boş gelirse rastgele bir şifre ata\n        password: body.password || Math.random().toString(36).slice(-8), \n        role: body.role || 'user',\n        phone: body.phone || '',\n        manager_id: body.manager_id\n    }\n};"
+            },
+            "id": "7c85527c-d209-4c92-86df-01230fdcfc0d",
+            "name": "Code (Veri Hazırla)",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                -112,
+                16
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://hequoxateionmtfjzkxl.supabase.co/auth/v1/admin/users",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "supabaseApi",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"email\": \"{{ $json.email }}\",\n  \"password\": \"{{ $json.password }}\",\n  \"email_confirm\": true,\n  \"user_metadata\": {\n    \"full_name\": \"{{ $json.full_name }}\",\n    \"company_id\": {{ $json.company_id }}\n  }\n}",
+                "options": {}
+            },
+            "id": "5e81f863-cbf8-431b-b862-dccc54bbc59d",
+            "name": "HTTP Request (Auth Create)",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                112,
+                16
+            ],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "3ZlBClCMHxbUdAF1",
+                    "name": "itt fişmatik saas"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "tableId": "users",
+                "fieldsUi": {
+                    "fieldValues": [
+                        {
+                            "fieldId": "id",
+                            "fieldValue": "={{ $json.identities[0].identity_id }}"
+                        },
+                        {
+                            "fieldId": "company_id",
+                            "fieldValue": "={{ $json.user_metadata.company_id }}"
+                        },
+                        {
+                            "fieldId": "full_name",
+                            "fieldValue": "={{ $json.user_metadata.full_name }}"
+                        },
+                        {
+                            "fieldId": "phone_number",
+                            "fieldValue": "={{ $('Code (Veri Hazırla)').item.json.phone }}"
+                        },
+                        {
+                            "fieldId": "role",
+                            "fieldValue": "={{ $('Code (Veri Hazırla)').item.json.role }}"
+                        },
+                        {
+                            "fieldId": "email",
+                            "fieldValue": "={{ $('Code (Veri Hazırla)').item.json.email }}"
+                        }
+                    ]
+                }
+            },
+            "id": "579e558b-0d94-4694-9b6e-c9234392d4fc",
+            "name": "Supabase (Profil Ekle)",
+            "type": "n8n-nodes-base.supabase",
+            "typeVersion": 1,
+            "position": [
+                336,
+                16
+            ],
+            "credentials": {
+                "supabaseApi": {
+                    "id": "3ZlBClCMHxbUdAF1",
+                    "name": "itt fişmatik saas"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "sendTo": "={{ $('Code (Veri Hazırla)').first().json.email }}",
+                "subject": "Fiş Fatura Hesabınız Oluşturuldu",
+                "message": "=<div style=\"font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f9f9fa; padding: 40px 20px; color: #333;\">\n  <div style=\"max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); overflow: hidden;\">\n    \n    <!-- Başlık -->\n    <div style=\"background: linear-gradient(135deg, #4F46E5 0%, #3730A3 100%); padding: 30px; text-align: center;\">\n      <h1 style=\"color: #ffffff; margin: 0; font-size: 24px; letter-spacing: 1px; font-weight: 600;\">Fiş Fatura</h1>\n    </div>\n\n    <!-- İçerik -->\n    <div style=\"padding: 40px 30px;\">\n      <h2 style=\"color: #1f2937; font-size: 22px; margin-top: 0; margin-bottom: 20px;\">Aramıza Hoş Geldiniz! 🎉</h2>\n      \n      <p style=\"font-size: 16px; line-height: 1.6; color: #4b5563; margin-bottom: 15px;\">\n        Merhaba Sayın <strong>{{ $('Code (Veri Hazırla)').first().json.full_name }}</strong>,\n      </p>\n      \n      <p style=\"font-size: 16px; line-height: 1.6; color: #4b5563;\">\n        Fiş Fatura hesabınız şirket yöneticiniz tarafından oluşturulmuştur. Giriş bilgileriniz aşağıdadır.\n      </p>\n\n      <!-- Hesap Bilgileri Kutusu -->\n      <div style=\"background-color: #eff6ff; border-left: 4px solid #4F46E5; padding: 25px; margin: 30px 0; border-radius: 4px;\">\n        <h3 style=\"margin-top: 0; margin-bottom: 15px; color: #3730A3; font-size: 16px;\">Giriş Bilgileriniz</h3>\n        \n        <div style=\"margin-bottom: 15px;\">\n          <p style=\"margin: 0; color: #6b7280; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;\">E-Posta</p>\n          <p style=\"margin: 4px 0 0 0; color: #1f2937; font-size: 16px; font-weight: 600;\">{{ $('Code (Veri Hazırla)').first().json.email }}</p>\n        </div>\n\n        <div>\n          <p style=\"margin: 0; color: #6b7280; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;\">Şifreniz</p>\n          <p style=\"margin: 4px 0 0 0; color: #4F46E5; font-size: 20px; font-weight: 700; font-family: 'Courier New', monospace; letter-spacing: 1px;\">\n             {{ $('Code (Veri Hazırla)').first().json.password }}\n          </p>\n        </div>\n      </div>\n      \n      <!-- Telegram Bot Yönlendirmesi (YENİ) -->\n      <div style=\"background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 20px; margin-bottom: 30px; text-align: center;\">\n        <h3 style=\"margin: 0 0 10px 0; color: #15803d; font-size: 18px;\">📱 Fiş Göndermeye Başlayın</h3>\n        <p style=\"margin: 0 0 15px 0; font-size: 14px; color: #166534;\">\n            Fiş fotoğraflarınızı Telegram botumuza göndererek sisteme anında işleyebilirsiniz.\n        </p>\n        <a href=\"https://t.me/ITT_Fis_matik_BOT\" target=\"_blank\" style=\"display: inline-flex; align-items: center; gap: 8px; background-color: #22c55e; color: #ffffff; text-decoration: none; padding: 10px 20px; border-radius: 6px; font-weight: 600; font-size: 14px;\">\n            Telegram Botunu Başlat\n        </a>\n      </div>\n\n      <div style=\"text-align: center; margin: 35px 0;\">\n        <a href=\"https://muhittinuzun.github.io/FismatikMusteriPaneli/\" style=\"background-color: #4F46E5; color: #ffffff; text-decoration: none; padding: 14px 35px; border-radius: 8px; font-weight: 600; display: inline-block; box-shadow: 0 4px 6px rgba(79, 70, 229, 0.2);\">Panele Giriş Yap</a>\n      </div>\n\n      <p style=\"font-size: 14px; color: #6b7280; margin-top: 30px; border-top: 1px solid #e5e7eb; padding-top: 20px;\">\n        <strong>Not:</strong> Güvenliğiniz için giriş yaptıktan sonra <em>Ayarlar</em> menüsünden şifrenizi değiştirmenizi öneririz.\n      </p>\n    </div>\n\n    <!-- Alt Bilgi -->\n    <div style=\"background-color: #f3f4f6; padding: 20px; text-align: center;\">\n      <p style=\"margin: 0; font-size: 12px; color: #9ca3af;\">\n        © 2025 Fiş Fatura. Tüm hakları saklıdır.\n      </p>\n    </div>\n  </div>\n</div>",
+                "options": {}
+            },
+            "id": "5c99d233-78b9-42c4-91eb-364c8b11c628",
+            "name": "Gmail (Hoş Geldiniz)",
+            "type": "n8n-nodes-base.gmail",
+            "typeVersion": 2.1,
+            "position": [
+                544,
+                16
+            ],
+            "webhookId": "1103b89c-1f4f-4ce1-b4c4-ba7d387a7ce9",
+            "credentials": {
+                "gmailOAuth2": {
+                    "id": "EUn4cdeYkQUXRdxL",
+                    "name": "fis takip"
+                }
+            }
+        }
+    ],
+    "connections": {
+        "Webhook (Alt Kullanıcı Ekle)": {
+            "main": [
+                [
+                    {
+                        "node": "Code (Veri Hazırla)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Code (Veri Hazırla)": {
+            "main": [
+                [
+                    {
+                        "node": "HTTP Request (Auth Create)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "HTTP Request (Auth Create)": {
+            "main": [
+                [
+                    {
+                        "node": "Supabase (Profil Ekle)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Supabase (Profil Ekle)": {
+            "main": [
+                [
+                    {
+                        "node": "Gmail (Hoş Geldiniz)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "pinData": {},
+    "meta": {
+        "instanceId": "6f076ed0cacd38fc2ba8ffa68ee2e157985f657f98d37b30667e4135afe7d023"
+    }
+}

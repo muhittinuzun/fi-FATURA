@@ -1,0 +1,779 @@
+{
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "fismatik",
+                "options": {}
+            },
+            "id": "e10a3660-aef4-4983-94c1-325f60bec8d5",
+            "name": "Webhook Tetikleyici",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 1,
+            "position": [
+                -1904,
+                -816
+            ],
+            "webhookId": "ff9a17c3-ffc1-402a-be46-cd45be563db5"
+        },
+        {
+            "parameters": {
+                "operation": "copy",
+                "fileId": {
+                    "__rl": true,
+                    "value": "=1j8xbs5q_v2NfPk1V0Mmx0oQrSa-11xL_kMXbafKYIMA",
+                    "mode": "id"
+                },
+                "name": "={{ $json.company_name }}_{{ DateTime.fromISO($('Code').item.json.db_query_start).toFormat('dd.MM.yyyy') }}_{{ DateTime.fromISO($('Code').item.json.db_query_end).toFormat('dd.MM.yyyy') }}_Masraf Raporları",
+                "options": {}
+            },
+            "id": "24f20670-40c0-4f1d-a436-dfb49624810b",
+            "name": "Rapor Dosyası Oluştur",
+            "type": "n8n-nodes-base.googleDrive",
+            "typeVersion": 3,
+            "position": [
+                -1312,
+                -816
+            ],
+            "credentials": {
+                "googleDriveOAuth2Api": {
+                    "id": "VBw5ECrF9rezWZtB",
+                    "name": "demoHESAPLAR"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "url": "=https://hequoxateionmtfjzkxl.supabase.co/rest/v1/fisler?select=*&company_id=eq.{{ $('Code').first().json.company_id }}&tarih=gte.{{ $('Code').first().json.db_query_start }}&tarih=lte.{{ $('Code').first().json.db_query_end }}&durum=in.(onaylandi,beklemede)",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "supabaseApi",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {}
+                    ]
+                },
+                "options": {}
+            },
+            "id": "34f5c60e-78d3-43d8-91e2-e5896e2f2240",
+            "name": "Supabase'den Fişleri Çek (HTTP)",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.1,
+            "position": [
+                -1136,
+                -816
+            ],
+            "alwaysOutputData": true,
+            "credentials": {
+                "supabaseApi": {
+                    "id": "3ZlBClCMHxbUdAF1",
+                    "name": "itt fişmatik saas"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "jsCode": "// 1. Webhook'tan gelen veriyi al\nconst inputItem = $input.first();\nlet body = inputItem.json.body;\n\n// 2. Gelen body string ise (text/plain durumunda) JSON'a çevir\nif (typeof body === 'string') {\n    try {\n        body = JSON.parse(body);\n    } catch (error) {\n        throw new Error(\"Gelen veri JSON formatında değil! Lütfen webhook gönderim formatını kontrol edin.\");\n    }\n}\n\n// 3. Tarihleri Al\nconst startDateRaw = body.start || body.start_date;\nconst endDateRaw = body.end || body.end_date;\nconst companyId = body.company_id || body.companyId;\nconst email = body.email || body.target_email;\n\n// 4. Supabase için Tarih Formatlama (ISO 8601)\n// Başlangıç: Günün ilk saniyesi (00:00:00)\n// Bitiş: Günün son saniyesi (23:59:59) - Böylece o gün kesilen fişler de dahil olur.\n\n// Eğer tarih zaten T içeriyorsa (örn: 2025-10-01T14:00:00) olduğu gibi bırak, yoksa saat ekle.\nconst dbStartDate = startDateRaw.includes('T') ? startDateRaw : `${startDateRaw}T00:00:00`;\nconst dbEndDate = endDateRaw.includes('T') ? endDateRaw : `${endDateRaw}T23:59:59`;\n\n// 5. Dosya ismi için temiz tarih (Sadece YYYY-MM-DD)\nconst fileStartDate = dbStartDate.split('T')[0];\nconst fileEndDate = dbEndDate.split('T')[0];\n\nreturn {\n  json: {\n    // İşlenecek Temel Veriler\n    company_id: companyId,\n    target_email: email,\n    \n    // Supabase Sorgusu İçin Hazırlanmış Tarihler\n    db_query_start: dbStartDate,\n    db_query_end: dbEndDate,\n    \n    // Rapor/Dosya İsmi İçin Veriler\n    generated_filename: `Fiş Fatura_Rapor_${fileStartDate}_${fileEndDate}.xlsx`,\n    \n    // Rapor Yapılandırması\n    config: {\n        sourceSpreadsheetId: \"12jM6rOFPFKsuEbOfE532v9cuNqTGd4KY69ixqRgoquA\",\n        templateFileId: \"1j8xbs5q_v2NfPk1V0Mmx0oQrSa-11xL_kMXbafKYIMA\"\n    }\n  }\n};"
+            },
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                -1696,
+                -816
+            ],
+            "id": "c58eab58-4a4e-47aa-9e56-e71c65b75314",
+            "name": "Code"
+        },
+        {
+            "parameters": {
+                "operation": "get",
+                "tableId": "companies",
+                "filters": {
+                    "conditions": [
+                        {
+                            "keyName": "id",
+                            "keyValue": "={{ $json.company_id }}"
+                        }
+                    ]
+                }
+            },
+            "type": "n8n-nodes-base.supabase",
+            "typeVersion": 1,
+            "position": [
+                -1504,
+                -816
+            ],
+            "id": "902139bb-525c-40e7-b145-06635e91b0ec",
+            "name": "şirket bilgisi",
+            "credentials": {
+                "supabaseApi": {
+                    "id": "3ZlBClCMHxbUdAF1",
+                    "name": "itt fişmatik saas"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "=https://sheets.googleapis.com/v4/spreadsheets/{{ $('Rapor Dosyası Oluştur').first().json.id }}:batchUpdate",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "googleDriveOAuth2Api",
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"requests\": [\n    {\n      \"duplicateSheet\": {\n        \"sourceSheetId\": 616214676,\n        \"newSheetName\": \"{{ $('Gurupları Döngüye Al').item.json.meta.sheetName }}\"\n      }\n    }\n  ]\n}",
+                "options": {}
+            },
+            "id": "8b5b28bb-04bb-44b0-90c2-3c6a4bc2815e",
+            "name": "Yeni Sekme Oluştur",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.3,
+            "position": [
+                1120,
+                -608
+            ],
+            "credentials": {
+                "googleDriveOAuth2Api": {
+                    "id": "VBw5ECrF9rezWZtB",
+                    "name": "demoHESAPLAR"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "jsCode": "// -----------------------------------------------------------\n// DÖNGÜ İÇİN YAZMA VERİSİNİ HAZIRLA (V5 - İsim Düzeltildi)\n// -----------------------------------------------------------\n\n// Yardımcı Fonksiyon: Düğüm ismini hem normal hem de \"1\" ekli haliyle arar.\nfunction getSafeNodeData(nodeName) {\n    try {\n        // 1. Tam ismi dene\n        return $(nodeName).item.json;\n    } catch (e) {\n        try {\n            // 2. Sonuna \"1\" ekleyip dene\n            return $(nodeName + \"1\").item.json;\n        } catch (e2) {\n            return null; // Bulunamazsa null dön\n        }\n    }\n}\n\ntry {\n    // 1. VERİLERİ GÜVENLİ ŞEKİLDE ÇEK\n    \n    // A. Sheet ID (Input'tan gelir - Yeni Sekme Oluştur)\n    const sheetData = $input.item.json;\n    \n    // B. Kullanıcı Bilgisi ('kullanıcı al' veya 'Get a row')\n    let userData = getSafeNodeData(\"kullanıcı al\");\n    if (!userData) userData = getSafeNodeData(\"Get a row\"); \n    \n    // C. Fiş Verisi (DİKKAT: İsim \"Gurupları\" olarak güncellendi)\n    const groupData = getSafeNodeData(\"Gurupları Döngüye Al\");\n\n    // -------------------------------------------------------\n    // HATA KONTROLÜ\n    // -------------------------------------------------------\n    if (!groupData) throw new Error(\"KRİTİK HATA: 'Gurupları Döngüye Al' düğümü bulunamadı! İsmi kopyala-yapıştır ile güncelledim.\");\n    if (!userData) console.log(\"UYARI: Kullanıcı verisi bulunamadı, 'Bilinmeyen' kullanılacak.\");\n\n    // 2. VERİLERİ İŞLE\n    const newSheetId = sheetData.replies?.[0]?.duplicateSheet?.properties?.sheetId;\n    if (newSheetId === undefined) throw new Error(\"Sheet ID bulunamadı. 'Yeni Sekme Oluştur' düğümü düzgün çalıştı mı?\");\n\n    const rawRecords = groupData.rows || [];\n    \n    // Kullanıcı Adını Belirle\n    let realUserName = \"Bilinmeyen Kullanıcı\";\n    if (userData) {\n        if (userData.full_name) realUserName = userData.full_name;\n        else if (userData.ad_soyad) realUserName = userData.ad_soyad;\n    } else if (groupData.meta?.kullanici) {\n        realUserName = groupData.meta.kullanici;\n    }\n\n    // Başlık Metinleri\n    const metaKart = groupData.meta?.kart || 'Kart';\n    const metaProje = groupData.meta?.proje || 'Proje';\n    const headerText = `${realUserName} - ${metaKart} - ${metaProje}`;\n\n    // Evrak No\n    const companyId = (rawRecords.length > 0 && rawRecords[0].company_id) ? rawRecords[0].company_id : \"00\";\n    const randomSeq = Date.now().toString().slice(-5);\n    const evrakNo = `${companyId}${randomSeq}`;\n\n    // Tarih Formatlayıcı\n    function formatDateTR(dateStr) {\n        if (!dateStr) return \"\";\n        let cleanStr = dateStr.toString().replace(\"'\", \"\").split(\"T\")[0];\n        const parts = cleanStr.split('-');\n        if (parts.length === 3) return `${parts[2]}.${parts[1]}.${parts[0]}`;\n        return cleanStr;\n    }\n\n    // 3. SATIRLARI OLUŞTUR (Consolidation)\n    const mergedMap = {};\n    for (const r of rawRecords) {\n        if (r.ocr_detaylari && Array.isArray(r.ocr_detaylari)) {\n            r.ocr_detaylari.forEach(detay => {\n                const key = `${r.fis_no}_${detay.KDVOrani}_${detay.kategori || \"Genel\"}_${r.tarih}`;\n                if (!mergedMap[key]) {\n                    mergedMap[key] = {\n                        ...r,\n                        \"Açıklama\": detay.kategori || r.kategori || \"Genel\",\n                        \"Matrah\": parseFloat(detay.Matrah || 0),\n                        \"KDV Oranı\": detay.KDVOrani,\n                        \"KDV Tutarı\": parseFloat(detay.KDVTutari || 0),\n                        \"Toplam Tutar\": parseFloat(detay.Tutar_KDVDahil || 0)\n                    };\n                } else {\n                    mergedMap[key][\"Matrah\"] += parseFloat(detay.Matrah || 0);\n                    mergedMap[key][\"KDV Tutarı\"] += parseFloat(detay.KDVTutari || 0);\n                    mergedMap[key][\"Toplam Tutar\"] += parseFloat(detay.Tutar_KDVDahil || 0);\n                }\n            });\n        } else {\n            const key = `${r.fis_no}_${r.KDVOrani || 0}_${r.kategori || \"Genel\"}_${r.tarih}`;\n            if (!mergedMap[key]) {\n                mergedMap[key] = {\n                    ...r,\n                    \"Açıklama\": r.kategori || \"Genel\",\n                    \"Matrah\": parseFloat(r.toplam_tutar || 0),\n                    \"KDV Oranı\": 0,\n                    \"KDV Tutarı\": 0,\n                    \"Toplam Tutar\": parseFloat(r.toplam_tutar || 0)\n                };\n            }\n        }\n    }\n\n    let finalRows = Object.values(mergedMap);\n    finalRows.sort((a, b) => new Date(a[\"Tarih\"]) - new Date(b[\"Tarih\"]));\n\n    const sheetRows = finalRows.map(r => ({\n        values: [\n            { userEnteredValue: { stringValue: \"\" } },\n            { userEnteredValue: { stringValue: formatDateTR(r[\"Tarih\"]) } },\n            { userEnteredValue: { stringValue: r[\"Fiş No\"] || \"\" } },\n            { userEnteredValue: { stringValue: r[\"İşletme\"] || \"\" } },\n            { userEnteredValue: { stringValue: r[\"Açıklama\"] || \"\" } },\n            { userEnteredValue: { numberValue: Number(r[\"Matrah\"]) } },\n            { userEnteredValue: { numberValue: Number(r[\"KDV Oranı\"]) } },\n            { userEnteredValue: { numberValue: Number(r[\"KDV Tutarı\"]) } },\n            { userEnteredValue: { numberValue: Number(r[\"Toplam Tutar\"]) } },\n            { userEnteredValue: { stringValue: r[\"Görsel\"] || \"\" } }\n        ]\n    }));\n\n    // 4. PAYLOAD OLUŞTUR\n    const requests = [\n        {\n            updateCells: {\n                range: { sheetId: newSheetId, startRowIndex: 1, endRowIndex: 3, startColumnIndex: 4, endColumnIndex: 5 }, \n                rows: [{ values: [{ userEnteredValue: { stringValue: headerText } }] }],\n                fields: \"userEnteredValue\"\n            }\n        },\n        {\n            updateCells: {\n                range: { sheetId: newSheetId, startRowIndex: 2, endRowIndex: 3, startColumnIndex: 3, endColumnIndex: 4 }, \n                rows: [{ values: [{ userEnteredValue: { stringValue: realUserName } }] }], \n                fields: \"userEnteredValue\"\n            }\n        },\n        {\n            updateCells: {\n                range: { sheetId: newSheetId, startRowIndex: 2, endRowIndex: 3, startColumnIndex: 8, endColumnIndex: 9 }, \n                rows: [{ values: [{ userEnteredValue: { stringValue: evrakNo } }] }],\n                fields: \"userEnteredValue\"\n            }\n        }\n    ];\n\n    if (sheetRows.length > 0) {\n        requests.push({\n            updateCells: {\n                range: { sheetId: newSheetId, startRowIndex: 13, startColumnIndex: 0 }, \n                rows: sheetRows,\n                fields: \"userEnteredValue\"\n            }\n        });\n    }\n\n    // Dosya ID'si\n    // Rapor Dosyası Oluştur düğümünün adını kontrol et (Genelde 'Rapor Dosyası Oluştur' dur)\n    let targetSpreadsheetId;\n    try {\n        const fileNode = $('Rapor Dosyası Oluştur').first() || $('Rapor Dosyası Oluştur1').first();\n        targetSpreadsheetId = fileNode.json.id;\n    } catch(e) {\n        targetSpreadsheetId = \"ID_BULUNAMADI\";\n    }\n\n    return { \n        json: { \n            updatePayload: { requests }, \n            targetSpreadsheetId: targetSpreadsheetId\n        } \n    };\n\n} catch (error) {\n    throw new Error(error.message);\n}"
+            },
+            "id": "2cbd23bb-de03-406b-9b14-4e0bd0827d5e",
+            "name": "Yazma Verisini Hazırla",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1376,
+                -608
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "=https://sheets.googleapis.com/v4/spreadsheets/{{ $json.targetSpreadsheetId }}:batchUpdate",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "googleDriveOAuth2Api",
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify($json.updatePayload) }}",
+                "options": {}
+            },
+            "id": "6f38247b-e0ea-40cc-915b-389d12bc38c0",
+            "name": "Verileri Sayfaya Yaz",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.3,
+            "position": [
+                1600,
+                -608
+            ],
+            "credentials": {
+                "googleDriveOAuth2Api": {
+                    "id": "VBw5ECrF9rezWZtB",
+                    "name": "demoHESAPLAR"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "jsCode": "// 1. Gelen verileri al\nconst receipts = $input.all().map(item => item.json);\n\n// --- YARDIMCI FONKSİYONLAR ---\nfunction safeDateFormatter(dateStr) {\n    if (!dateStr) return null;\n    const d = new Date(dateStr);\n    if (isNaN(d.getTime())) return null;\n    try { return d.toISOString().split('T')[0]; } catch (e) { return null; }\n}\n\nfunction cleanString(str) {\n    if (!str) return \"\";\n    return str.toString().toLocaleUpperCase('tr-TR').replace(/\\s+/g, '').replace(/[^A-Z0-9ĞÜŞİÖÇ]/g, \"\"); \n}\n\n// --- ANA MANTIK ---\nconst groups = {};        \nconst duplicates = [];    \nconst seenKeys = new Set(); \n\nfor (const receipt of receipts) {\n    \n    // 1. Mükerrer Kontrol Anahtarı (Tarih + Tutar + Fiş No)\n    const dateKey = safeDateFormatter(receipt.tarih) || safeDateFormatter(receipt.created_at) || \"TarihYok\";\n    const amountKey = parseFloat(receipt.toplam_tutar || 0).toFixed(2);\n    const fisNoKey = cleanString(receipt.fis_no);\n    \n    const uniqueKey = `${dateKey}_${amountKey}_${fisNoKey}`;\n\n    // 2. Kontrol Et: Daha önce gördük mü?\n    if (seenKeys.has(uniqueKey)) {\n        // EVET -> Bu mükerrerdir, duplicates listesine at.\n        duplicates.push({\n            id: receipt.id,\n            fis_no: receipt.fis_no,\n            durum: \"Mükerrer\",\n            description: \"Aynı tarih, tutar ve fiş numarasına sahip kayıt bulundu.\"\n        });\n        continue; // Aşağıdaki gruplama işlemine sokma, döngüden çık.\n    } else {\n        seenKeys.add(uniqueKey);\n    }\n\n    // --- BURAYA GELENLER ARTIK BENZERSİZ (UNIQUE) FİŞLERDİR ---\n    \n    // 3. Gruplama (Kullanıcı + Kart + Proje)\n    const userId = receipt.user_id || 'Belirsiz';\n    const cardLast4 = receipt.kart_son_4 || 'Nakit/Diğer';\n    const project = receipt.proje || 'Genel';\n    const groupKey = `${userId}_${cardLast4}_${project}`;\n\n    if (!groups[groupKey]) {\n        groups[groupKey] = {\n            // Bu \"meta\" bilgisi (Başlıklar için)\n            meta: { \n                kullanici: userId, \n                kart: cardLast4, \n                proje: project,\n                // Sayfa ismi (Max 30 karakter)\n                sheetName: `${project.substring(0,10)} - ${cardLast4}`.substring(0,30)\n            },\n            // Bu \"rows\" bilgisi (Fişlerin listesi)\n            rows: [] \n        };\n    }\n\n    // Fişi ilgili grubun paketine ekle (Detaylarıyla birlikte)\n    groups[groupKey].rows.push({\n        ...receipt,\n        'Tarih': dateKey,\n        'Fiş No': receipt.fis_no,\n        'İşletme': receipt.isletme_adi,\n        'Ödeme Tipi': receipt.odeme_tipi,\n        'Görsel': receipt.gorsel_url,\n        'Açıklama': receipt.kategori || 'Genel',\n        'Matrah': parseFloat(receipt.toplam_tutar || 0),\n        'KDV Oranı': 0, // Varsayılan (Yazma düğümünde detaylandırılacak)\n        'KDV Tutarı': 0,\n        'Toplam Tutar': parseFloat(receipt.toplam_tutar || 0),\n        'ocr_detaylari': receipt.ocr_detaylari // OCR detaylarını koru\n    });\n}\n\n// 4. ÇIKTIYI HAZIRLA\n// İki ayrı liste döndürüyoruz: \n// a) report_batches: Raporlanacak gruplar (Paketler)\n// b) duplicates: Mükerrer olanlar (Etiketlenecekler)\n\n// Grupları diziye çevir ve her grubu kendi içinde tarihe göre sırala\nconst reportBatches = Object.values(groups).map(g => {\n    g.rows.sort((a, b) => new Date(a.Tarih) - new Date(b.Tarih));\n    return g;\n});\n\nreturn {\n    json: {\n        report_batches: reportBatches, // Rapor akışına gidecek\n        duplicates: duplicates,        // Mükerrer akışına gidecek\n        stats: {\n            total: receipts.length,\n            unique: reportBatches.reduce((acc, g) => acc + g.rows.length, 0),\n            duplicate: duplicates.length\n        }\n    }\n};"
+            },
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                -528,
+                -832
+            ],
+            "id": "1f532f9d-eb32-46af-9d3c-8f4cd0aa6e0a",
+            "name": "gelen satırları filtrele"
+        },
+        {
+            "parameters": {
+                "fieldToSplitOut": "duplicates",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.splitOut",
+            "typeVersion": 1,
+            "position": [
+                -256,
+                -896
+            ],
+            "id": "83c9b500-4d15-4c19-ace2-bf71e087f28c",
+            "name": "mükerrer kayıtlar"
+        },
+        {
+            "parameters": {
+                "fieldToSplitOut": "report_batches",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.splitOut",
+            "typeVersion": 1,
+            "position": [
+                -256,
+                -704
+            ],
+            "id": "a2ab668b-d37e-4f4d-984b-9a863acbd633",
+            "name": "raporlama"
+        },
+        {
+            "parameters": {
+                "operation": "update",
+                "tableId": "fisler",
+                "filters": {
+                    "conditions": [
+                        {
+                            "keyName": "id",
+                            "condition": "eq",
+                            "keyValue": "={{ $json.id }}"
+                        }
+                    ]
+                },
+                "fieldsUi": {
+                    "fieldValues": [
+                        {
+                            "fieldId": "durum",
+                            "fieldValue": "={{ $json.durum }}"
+                        }
+                    ]
+                }
+            },
+            "type": "n8n-nodes-base.supabase",
+            "typeVersion": 1,
+            "position": [
+                -32,
+                -896
+            ],
+            "id": "1a3e45f5-3a8f-410a-ada6-f78e4c6a799d",
+            "name": "mükerrerleri etiketle",
+            "credentials": {
+                "supabaseApi": {
+                    "id": "3ZlBClCMHxbUdAF1",
+                    "name": "itt fişmatik saas"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "jsCode": "// Gelen item'ı al\nconst item = $input.first();\n\n// Eğer item'da report_batches varsa (yani raporlama node'undan geliyorsa)\nif (item.json.report_batches && Array.isArray(item.json.report_batches)) {\n    const batches = item.json.report_batches;\n    \n    console.log('📦 Toplam Grup:', batches.length);\n    \n    // Her grubu ayrı item olarak döndür\n    return batches.map((batch, index) => {\n        console.log(`✅ Grup ${index + 1}:`, batch.meta.sheetName);\n        return { json: batch };\n    });\n}\n\n// Eğer direkt grup verisi geliyorsa (zaten array ise)\nconst items = $input.all();\nconsole.log('📋 Gelen item sayısı:', items.length);\nreturn items;\n"
+            },
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                192,
+                -704
+            ],
+            "id": "930e007a-e1bc-4494-bddb-84509e3002d8",
+            "name": "rapor için hazırlık"
+        },
+        {
+            "parameters": {
+                "sendTo": "={{ $('Code').first().json.target_email }}",
+                "subject": "=Bilgilendirme: Harcama Raporu Teslimi",
+                "message": "=<div style=\"font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f9f9fa; padding: 40px 20px; color: #333;\">\n  <div style=\"max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); overflow: hidden;\">\n    \n    <div style=\"background: linear-gradient(135deg, #4F46E5 0%, #3730A3 100%); padding: 30px; text-align: center;\">\n      <h1 style=\"color: #ffffff; margin: 0; font-size: 24px; letter-spacing: 1px; font-weight: 600;\">Fiş Fatura</h1>\n    </div>\n\n    <div style=\"padding: 40px 30px;\">\n      <h2 style=\"color: #1f2937; font-size: 20px; margin-top: 0; margin-bottom: 20px;\">Raporunuz Hazır! 📊</h2>\n      \n      <p style=\"font-size: 16px; line-height: 1.6; color: #4b5563; margin-bottom: 15px;\">\n        Merhaba <strong>{{ $('Code').first().json.full_name || 'Değerli Yöneticimiz' }}</strong>,\n      </p>\n      \n      <p style=\"font-size: 16px; line-height: 1.6; color: #4b5563;\">\n        Sistemimiz üzerinden talep etmiş olduğunuz harcama ve fiş raporu başarıyla oluşturulmuştur.\n      </p>\n\n      <div style=\"background-color: #f0fdf4; border-left: 4px solid #22c55e; padding: 15px 20px; margin: 25px 0; border-radius: 4px;\">\n        <p style=\"margin: 0; color: #166534; font-size: 15px; font-weight: 500;\">\n          📎 <strong>Bilgilendirme:</strong> Tüm detayları içeren Excel raporunu bu mailin ekinde bulabilirsiniz.\n        </p>\n      </div>\n\n      <p style=\"font-size: 16px; line-height: 1.6; color: #4b5563;\">\n        Finansal süreçlerinizi hızlandırmak için buradayız. Herhangi bir sorunuz olursa bizimle iletişime geçebilirsiniz.\n      </p>\n\n      <br>\n      \n      <p style=\"font-size: 16px; color: #1f2937; font-weight: bold; margin-bottom: 5px;\">\n        Keyifli çalışmalar dileriz,\n      </p>\n      <p style=\"font-size: 16px; color: #4F46E5; margin-top: 0; font-weight: 600;\">\n        Fiş Fatura Ekibi\n      </p>\n    </div>\n\n    <div style=\"background-color: #f3f4f6; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb;\">\n      <p style=\"margin: 0; font-size: 12px; color: #9ca3af;\">\n        © 2025 Fiş Fatura Raporlama Sistemi. Bu mesaj otomatik olarak oluşturulmuştur.\n      </p>\n    </div>\n  </div>\n</div>",
+                "options": {
+                    "appendAttribution": false,
+                    "attachmentsUi": {
+                        "attachmentsBinary": [
+                            {}
+                        ]
+                    },
+                    "senderName": "Fişmatik"
+                }
+            },
+            "type": "n8n-nodes-base.gmail",
+            "typeVersion": 2.1,
+            "position": [
+                1328,
+                -832
+            ],
+            "id": "a8a40ddf-ed53-4575-9c7f-7693af9002ef",
+            "name": "Send a message",
+            "webhookId": "c8c08918-733e-49ae-ad29-8a33fefa1b59",
+            "credentials": {
+                "gmailOAuth2": {
+                    "id": "EUn4cdeYkQUXRdxL",
+                    "name": "fis takip"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "operation": "download",
+                "fileId": {
+                    "__rl": true,
+                    "value": "={{ $('Rapor Dosyası Oluştur').first().json.id }}",
+                    "mode": "id"
+                },
+                "options": {
+                    "binaryPropertyName": "data",
+                    "googleFileConversion": {
+                        "conversion": {
+                            "sheetsToFormat": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                        }
+                    }
+                }
+            },
+            "type": "n8n-nodes-base.googleDrive",
+            "typeVersion": 3,
+            "position": [
+                1088,
+                -832
+            ],
+            "id": "f83a1dd1-3ce8-496f-b046-53b35b75fe00",
+            "name": "Download file",
+            "credentials": {
+                "googleDriveOAuth2Api": {
+                    "id": "Wjwnm8ddaeXmtPap",
+                    "name": "itt drive"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "operation": "get",
+                "tableId": "users",
+                "filters": {
+                    "conditions": [
+                        {
+                            "keyName": "id",
+                            "keyValue": "={{ $json.meta.kullanici }}"
+                        }
+                    ]
+                }
+            },
+            "type": "n8n-nodes-base.supabase",
+            "typeVersion": 1,
+            "position": [
+                880,
+                -592
+            ],
+            "id": "08dad8d0-d847-463e-8650-57c15705f63a",
+            "name": "kullanıcı al",
+            "credentials": {
+                "supabaseApi": {
+                    "id": "3ZlBClCMHxbUdAF1",
+                    "name": "itt fişmatik saas"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "jsCode": "// Node Adı: \"Debug - Grup Sayısı\"\n\n// GÜVENLİ VERİ ALMA\nconst inputData = $input.first().json;\nconst batches = inputData.report_batches || [];\n\nconsole.log('📦 TOPLAM GRUP SAYISI:', batches.length);\n\nif (batches.length === 0) {\n    console.log('⚠️ UYARI: Hiç grup bulunamadı!');\n    return $input.all();\n}\n\nbatches.forEach((batch, index) => {\n    console.log(`Grup ${index + 1}:`, {\n        kullanici: batch.meta?.kullanici || 'N/A',\n        kart: batch.meta?.kart || 'N/A',\n        proje: batch.meta?.proje || 'N/A',\n        satirSayisi: batch.rows?.length || 0\n    });\n});\n\nreturn $input.all();"
+            },
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                -32,
+                -704
+            ],
+            "id": "7f6273aa-21eb-4443-9bca-ccd767231ae1",
+            "name": "gurup kontrol"
+        },
+        {
+            "parameters": {
+                "options": {
+                    "reset": false
+                }
+            },
+            "type": "n8n-nodes-base.splitInBatches",
+            "typeVersion": 3,
+            "position": [
+                512,
+                -704
+            ],
+            "id": "af3e717a-b003-4d28-8573-96eff6f5dbdc",
+            "name": "Gurupları Döngüye Al"
+        },
+        {
+            "parameters": {},
+            "type": "n8n-nodes-base.limit",
+            "typeVersion": 1,
+            "position": [
+                848,
+                -832
+            ],
+            "id": "a79611fa-f29d-40f5-b71c-9d3ca8e47e8a",
+            "name": "Limit"
+        },
+        {
+            "parameters": {
+                "operation": "update",
+                "tableId": "fisler",
+                "filters": {
+                    "conditions": [
+                        {
+                            "keyName": "id",
+                            "condition": "eq",
+                            "keyValue": "={{ $json.id }}"
+                        }
+                    ]
+                },
+                "fieldsUi": {
+                    "fieldValues": [
+                        {
+                            "fieldId": "durum",
+                            "fieldValue": "Rapor Alındı"
+                        }
+                    ]
+                }
+            },
+            "type": "n8n-nodes-base.supabase",
+            "typeVersion": 1,
+            "position": [
+                2016,
+                -608
+            ],
+            "id": "29150e28-063f-4223-9b71-5ea373ab71a5",
+            "name": "Durum Güncelle",
+            "credentials": {
+                "supabaseApi": {
+                    "id": "3ZlBClCMHxbUdAF1",
+                    "name": "itt fişmatik saas"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "jsCode": "// ----------------------------------------------------------------\n// FİŞ ID'LERİNİ HAZIRLA (İsim Düzeltmeli)\n// ----------------------------------------------------------------\n\nlet rows = [];\n\ntry {\n    // 1. YÖNTEM: Senin düğüm isminle (Gurupları...)\n    if ($node[\"Gurupları Döngüye Al\"] && $node[\"Gurupları Döngüye Al\"].json) {\n        rows = $node[\"Gurupları Döngüye Al\"].json.rows;\n    }\n    // 2. YÖNTEM: Belki sonunda \"1\" vardır (Gurupları Döngüye Al1)\n    else if ($node[\"Gurupları Döngüye Al1\"] && $node[\"Gurupları Döngüye Al1\"].json) {\n        rows = $node[\"Gurupları Döngüye Al1\"].json.rows;\n    }\n    // 3. YÖNTEM: Modern Erişim ($ notation)\n    else {\n        rows = $('Gurupları Döngüye Al').item.json.rows;\n    }\n} catch (error) {\n    // Eğer veri bulunamazsa, akışı kırmamak için boş dizi tanımla\n    // console.log(\"Veri çekme hatası: \" + error.message);\n    rows = [];\n}\n\n// Güvenlik Kontrolü: Rows yoksa boş dön\nif (!rows || !Array.isArray(rows)) {\n    return [];\n}\n\n// Her bir fiş için ayrı bir çıktı (item) oluştur\n// Böylece sonraki Supabase düğümü her biri için ayrı ayrı çalışır\nreturn rows.map(row => ({\n    json: {\n        id: row.id\n    }\n}));"
+            },
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1808,
+                -608
+            ],
+            "id": "ecac4aec-2bbb-4dcd-a0fc-925a615a560d",
+            "name": "ID'leri Hazırla"
+        },
+        {
+            "parameters": {
+                "jsCode": "// Gruptaki tüm güncellemeler bitti.\n// Ana döngüye sadece tek bir \"Devam Et\" sinyali gönderiyoruz.\nreturn [ $input.first() ];"
+            },
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                2224,
+                -608
+            ],
+            "id": "8a331c5f-f738-4c0e-a1fd-1ba68abbaf49",
+            "name": "Tekilleştir"
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "options": {
+                        "caseSensitive": true,
+                        "leftValue": "",
+                        "typeValidation": "strict",
+                        "version": 2
+                    },
+                    "conditions": [
+                        {
+                            "id": "631fd6e5-fd7e-48d2-b627-0844ea44c676",
+                            "leftValue": "={{ $json.id }}",
+                            "rightValue": "",
+                            "operator": {
+                                "type": "number",
+                                "operation": "notEmpty",
+                                "singleValue": true
+                            }
+                        }
+                    ],
+                    "combinator": "and"
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2.2,
+            "position": [
+                -912,
+                -816
+            ],
+            "id": "6202c707-58d6-47d2-a25d-13f0a614dd8c",
+            "name": "fiş var mı?"
+        },
+        {
+            "parameters": {
+                "sendTo": "={{ $('Code').item.json.target_email }}",
+                "subject": "Bilgilendirme: Fiş Kaydı bulunamadı",
+                "message": "=<div style=\"font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f9f9fa; padding: 40px 20px; color: #333;\">   <div style=\"max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); overflow: hidden;\">          <div style=\"background: linear-gradient(135deg, #EF4444 0%, #B91C1C 100%); padding: 30px; text-align: center;\">       <h1 style=\"color: #ffffff; margin: 0; font-size: 24px; letter-spacing: 1px; font-weight: 600;\">Fiş Fatura</h1>     </div>      <div style=\"padding: 40px 30px;\">       <h2 style=\"color: #1f2937; font-size: 20px; margin-top: 0; margin-bottom: 20px;\">Rapor Oluşturulamadı ⚠️</h2>              <p style=\"font-size: 16px; line-height: 1.6; color: #4b5563; margin-bottom: 15px;\">         Merhaba <strong>{{ $('Code').first().json.full_name || 'Değerli Kullanıcımız' }}</strong>,       </p>              <p style=\"font-size: 16px; line-height: 1.6; color: #4b5563;\">         Seçmiş olduğunuz tarih aralığında ve kriterlerde raporlanacak uygun statüde (Onaylandı/Beklemede) herhangi bir fiş <strong>bulunamamıştır.</strong>       </p>        <div style=\"background-color: #fef2f2; border-left: 4px solid #ef4444; padding: 15px 20px; margin: 25px 0; border-radius: 4px;\">         <p style=\"margin: 0; color: #991b1b; font-size: 15px; font-weight: 500;\">           👉 Lütfen panel üzerinden tarih aralığını kontrol ederek tekrar deneyiniz.         </p>       </div>        <br>       <p style=\"font-size: 16px; color: #4F46E5; margin-top: 0; font-weight: 600;\">         Fiş Fatura Ekibi       </p>     </div>   </div> </div>",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.gmail",
+            "typeVersion": 2.1,
+            "position": [
+                -256,
+                -528
+            ],
+            "id": "65588e43-875e-45e3-8441-e56b738cd007",
+            "name": "fiş yok mesajı",
+            "webhookId": "7307144d-5c00-4023-b684-a9ec3c10cf81",
+            "credentials": {
+                "gmailOAuth2": {
+                    "id": "EUn4cdeYkQUXRdxL",
+                    "name": "fis takip"
+                }
+            }
+        }
+    ],
+    "connections": {
+        "Webhook Tetikleyici": {
+            "main": [
+                [
+                    {
+                        "node": "Code",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Rapor Dosyası Oluştur": {
+            "main": [
+                [
+                    {
+                        "node": "Supabase'den Fişleri Çek (HTTP)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Supabase'den Fişleri Çek (HTTP)": {
+            "main": [
+                [
+                    {
+                        "node": "fiş var mı?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Code": {
+            "main": [
+                [
+                    {
+                        "node": "şirket bilgisi",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "şirket bilgisi": {
+            "main": [
+                [
+                    {
+                        "node": "Rapor Dosyası Oluştur",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Yeni Sekme Oluştur": {
+            "main": [
+                [
+                    {
+                        "node": "Yazma Verisini Hazırla",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Yazma Verisini Hazırla": {
+            "main": [
+                [
+                    {
+                        "node": "Verileri Sayfaya Yaz",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Verileri Sayfaya Yaz": {
+            "main": [
+                [
+                    {
+                        "node": "ID'leri Hazırla",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "gelen satırları filtrele": {
+            "main": [
+                [
+                    {
+                        "node": "mükerrer kayıtlar",
+                        "type": "main",
+                        "index": 0
+                    },
+                    {
+                        "node": "raporlama",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "mükerrer kayıtlar": {
+            "main": [
+                [
+                    {
+                        "node": "mükerrerleri etiketle",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "raporlama": {
+            "main": [
+                [
+                    {
+                        "node": "gurup kontrol",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "rapor için hazırlık": {
+            "main": [
+                [
+                    {
+                        "node": "Gurupları Döngüye Al",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Download file": {
+            "main": [
+                [
+                    {
+                        "node": "Send a message",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "kullanıcı al": {
+            "main": [
+                [
+                    {
+                        "node": "Yeni Sekme Oluştur",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "gurup kontrol": {
+            "main": [
+                [
+                    {
+                        "node": "rapor için hazırlık",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Gurupları Döngüye Al": {
+            "main": [
+                [
+                    {
+                        "node": "Limit",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "kullanıcı al",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Limit": {
+            "main": [
+                [
+                    {
+                        "node": "Download file",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Durum Güncelle": {
+            "main": [
+                [
+                    {
+                        "node": "Tekilleştir",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "ID'leri Hazırla": {
+            "main": [
+                [
+                    {
+                        "node": "Durum Güncelle",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Tekilleştir": {
+            "main": [
+                [
+                    {
+                        "node": "Gurupları Döngüye Al",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "fiş var mı?": {
+            "main": [
+                [
+                    {
+                        "node": "gelen satırları filtrele",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "fiş yok mesajı",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "pinData": {},
+    "meta": {
+        "templateCredsSetupCompleted": true,
+        "instanceId": "6f076ed0cacd38fc2ba8ffa68ee2e157985f657f98d37b30667e4135afe7d023"
+    }
+}

@@ -1,0 +1,165 @@
+{
+  "name": "01 - Telegram Giris ve Kota Kontrol",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "telegram-auth-quota",
+        "httpMethod": "POST"
+      },
+      "id": "q1",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -760,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select u.id as user_id, u.company_id, u.telegram_id, c.used_this_month, c.monthly_limit, c.extra_credits from users u join companies c on c.id = u.company_id where u.telegram_id = $1 and u.is_active = true limit 1;",
+        "additionalFields": {
+          "queryParams": "={{ [$json.body.telegram_id] }}"
+        }
+      },
+      "id": "q2",
+      "name": "PG Find Telegram User",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        -520,
+        -20
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "POSTGRES_CREDENTIAL_ID",
+          "name": "fismatik-postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ Number($json[0].used_this_month || 0) < (Number($json[0].monthly_limit || 0) + Number($json[0].extra_credits || 0)) }}"
+            }
+          ]
+        }
+      },
+      "id": "q3",
+      "name": "IF Quota Available",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -280,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"allow\":true,\"company_id\":\"{{$json[0].company_id}}\",\"user_id\":\"{{$json[0].user_id}}\"}"
+      },
+      "id": "q4",
+      "name": "Response Allow",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -40,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json[0].telegram_id || $json.body.telegram_id }}",
+        "text": "Aylik fis limitiniz doldu. Destek icin: https://t.me/ITTFISMATIKBOT"
+      },
+      "id": "q5",
+      "name": "Telegram Limit Warning",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -40,
+        60
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "TELEGRAM_CREDENTIAL_ID",
+          "name": "fismatik-bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"allow\":false,\"company_id\":\"{{$json[0].company_id}}\",\"message\":\"Kota dolu\"}"
+      },
+      "id": "q6",
+      "name": "Response Block",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        200,
+        60
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "PG Find Telegram User",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PG Find Telegram User": {
+      "main": [
+        [
+          {
+            "node": "IF Quota Available",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Quota Available": {
+      "main": [
+        [
+          {
+            "node": "Response Allow",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Telegram Limit Warning",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram Limit Warning": {
+      "main": [
+        [
+          {
+            "node": "Response Block",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "versionId": "quota-flow-v2-postgres"
+}

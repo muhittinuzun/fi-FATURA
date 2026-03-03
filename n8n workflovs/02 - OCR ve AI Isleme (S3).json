@@ -1,0 +1,188 @@
+{
+  "name": "02 - OCR ve AI Isleme (S3)",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "ocr-ai-process",
+        "httpMethod": "POST"
+      },
+      "id": "p1",
+      "name": "Webhook In",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -940,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $json.body || {};\nconst fileName = `${body.company_id}_${Date.now()}.jpg`;\nreturn [{ json: { ...body, s3_key: fileName } }];"
+      },
+      "id": "p2",
+      "name": "Prepare File Meta",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -730,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://{{$json.aws_bucket}}.s3.{{$json.aws_region}}.amazonaws.com/{{$json.s3_key}}",
+        "sendBinaryData": true,
+        "binaryPropertyName": "image",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "aws"
+      },
+      "id": "p3",
+      "name": "Upload To S3",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -500,
+        -20
+      ],
+      "credentials": {
+        "aws": {
+          "id": "AWS_CREDENTIAL_ID",
+          "name": "aws-s3-fismatik"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://vision.googleapis.com/v1/images:annotate?key={{$json.vision_api_key}}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"requests\":[{\"image\":{\"content\":\"{{$json.base64_image}}\"},\"features\":[{\"type\":\"TEXT_DETECTION\"}]}]}"
+      },
+      "id": "p4",
+      "name": "Google Vision OCR",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -260,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={{$json.gemini_api_key}}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"contents\":[{\"parts\":[{\"text\":\"Fiş OCR metnini JSON alanlara ayır: işletme, tarih, kategori, toplam_tutar. OCR: {{$json.responses[0].fullTextAnnotation.text}}\"}]}]}"
+      },
+      "id": "p5",
+      "name": "Gemini Structuring",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -20,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const usage = $json.usageMetadata || {};\nconst inputTokens = Number(usage.promptTokenCount || 0);\nconst outputTokens = Number(usage.candidatesTokenCount || 0);\nconst tokenCount = inputTokens + outputTokens;\nconst estimatedCost = (inputTokens * 0.00000015) + (outputTokens * 0.0000006);\nreturn [{ json: { ...$json, token_count: tokenCount, estimated_cost: Number(estimatedCost.toFixed(6)) } }];"
+      },
+      "id": "p6",
+      "name": "Calculate Tokens",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        210,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"status\":\"ok\",\"s3_url\":\"https://{{$json.aws_bucket}}.s3.{{$json.aws_region}}.amazonaws.com/{{$json.s3_key}}\",\"token_count\":\"{{$json.token_count}}\",\"estimated_cost\":\"{{$json.estimated_cost}}\"}"
+      },
+      "id": "p7",
+      "name": "Respond Parsed",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        430,
+        -20
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook In": {
+      "main": [
+        [
+          {
+            "node": "Prepare File Meta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare File Meta": {
+      "main": [
+        [
+          {
+            "node": "Upload To S3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload To S3": {
+      "main": [
+        [
+          {
+            "node": "Google Vision OCR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Vision OCR": {
+      "main": [
+        [
+          {
+            "node": "Gemini Structuring",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Structuring": {
+      "main": [
+        [
+          {
+            "node": "Calculate Tokens",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Tokens": {
+      "main": [
+        [
+          {
+            "node": "Respond Parsed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "versionId": "ocr-flow-v1"
+}

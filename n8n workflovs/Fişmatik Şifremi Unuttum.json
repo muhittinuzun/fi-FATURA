@@ -1,0 +1,314 @@
+{
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "3eafd39c-fdee-406f-88ef-1b9ab4bd555e",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 2.1,
+            "position": [
+                -400,
+                -48
+            ],
+            "id": "9f11987c-b2cf-449d-b1da-629a50331616",
+            "name": "şifre iste",
+            "webhookId": "3eafd39c-fdee-406f-88ef-1b9ab4bd555e"
+        },
+        {
+            "parameters": {
+                "jsCode": "return items.map(item => {\n  try {\n    const parsedBody = JSON.parse(item.json.body);\n    // 8 karakterli rastgele bir şifre üretir\n    const newPassword = Math.random().toString(36).slice(-8);\n\n    return {\n      json: {\n        email: parsedBody.email,\n        generatedPassword: newPassword, // Yeni şifre\n        // full_name bilgisini bu akışta almadığımız için geçici olarak maili kullanacağız.\n        full_name: parsedBody.email.split('@')[0] || 'Değerli Kullanıcımız'\n      }\n    };\n  } catch (error) {\n    return {\n      json: {\n        error: \"Veri ayrıştırılamadı (JSON Parse Error)\"\n      }\n    };\n  }\n});"
+            },
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                -176,
+                -48
+            ],
+            "id": "b0ddfd7c-e933-4c3d-936b-498dca140a38",
+            "name": "Code (Şifre Üret)",
+            "alwaysOutputData": true
+        },
+        {
+            "parameters": {
+                "url": "=https://hequoxateionmtfjzkxl.supabase.co/auth/v1/admin/users?email={{ $json.email }}",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhlcXVveGF0ZWlvbm10Zmp6a3hsIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NTI1ODkwMCwiZXhwIjoyMDgwODM0OTAwfQ.FgWiBmWeBprN8QemBL4ZS_9oy0FBuUY8PIZaaVfgKD4"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhlcXVveGF0ZWlvbm10Zmp6a3hsIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NTI1ODkwMCwiZXhwIjoyMDgwODM0OTAwfQ.FgWiBmWeBprN8QemBL4ZS_9oy0FBuUY8PIZaaVfgKD4"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "3b4bd2ba-6392-41c9-82c9-b1e8103d5028",
+            "name": "Auth UID Bul (GET)",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                48,
+                -48
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "const email = $('Code (Şifre Üret)').first().json.email;\nconst generatedPassword = $('Code (Şifre Üret)').first().json.generatedPassword;\n// users dizisi yoksa boş dizi ata ki find hata vermesin\nconst usersList = $input.first().json.users || []; \n\n// Kullanıcıyı ara\nconst user = usersList.find(u => u.email === email);\n\nif (user) {\n    // KULLANICI BULUNDU\n    return {\n        json: {\n            userId: user.id,\n            email: user.email,\n            generatedPassword: generatedPassword,\n            full_name: user.user_metadata?.full_name || email.split('@')[0]\n        }\n    };\n} else {\n    // KULLANICI BULUNAMADI (Hata yerine kontrollü çıktı veriyoruz)\n    return {\n        json: {\n            userId: null, // Bu alanın null olması sonraki IF düğümünde işe yarayacak\n            email: email,\n            error: \"Kullanıcı sistemde kayıtlı değil\"\n        }\n    };\n}"
+            },
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                272,
+                -48
+            ],
+            "id": "8972341a-974b-45c2-b8b0-3a2e724ed3b1",
+            "name": "Code (Kullanıcı Filtrele)"
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "options": {
+                        "caseSensitive": true,
+                        "leftValue": "",
+                        "typeValidation": "strict",
+                        "version": 2
+                    },
+                    "conditions": [
+                        {
+                            "leftValue": "={{ $json.userId }}",
+                            "operator": {
+                                "type": "string",
+                                "operation": "notEmpty",
+                                "singleValue": true
+                            },
+                            "id": "c4e6e98e-6bc1-43f2-8b23-20b25c3540e5"
+                        }
+                    ],
+                    "combinator": "and"
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2.2,
+            "position": [
+                496,
+                -48
+            ],
+            "id": "91daf2a7-9025-44e4-aa3f-41a2f2ae8e9b",
+            "name": "If (Kullanıcı Bulundu Mu?)"
+        },
+        {
+            "parameters": {
+                "sendTo": "={{ $json.email }}",
+                "subject": "Fiş Fatura Şifre Yenileme",
+                "message": "=<div style=\"font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f9f9fa; padding: 40px 20px; color: #333;\">\n  <div style=\"max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); overflow: hidden;\">\n    \n    <div style=\"background: linear-gradient(135deg, #4F46E5 0%, #3730A3 100%); padding: 30px; text-align: center;\">\n      <h1 style=\"color: #ffffff; margin: 0; font-size: 24px; letter-spacing: 1px; font-weight: 600;\">Fiş Fatura</h1>\n    </div>\n\n    <div style=\"padding: 40px 30px;\">\n      <h2 style=\"color: #1f2937; font-size: 20px; margin-top: 0; margin-bottom: 20px;\">Şifreniz Yenilendi 🔐</h2>\n      \n      <p style=\"font-size: 16px; line-height: 1.6; color: #4b5563; margin-bottom: 15px;\">\n        Merhaba Sayın <strong>{{ $json.full_name }}</strong>,\n      </p>\n      \n      <p style=\"font-size: 16px; line-height: 1.6; color: #4b5563;\">\n        Şifre yenileme talebiniz üzerine hesabınız için yeni bir giriş şifresi oluşturulmuştur.\n      </p>\n\n      <div style=\"background-color: #eff6ff; border-left: 4px solid #4F46E5; padding: 20px; margin: 25px 0; border-radius: 4px;\">\n        \n        <div style=\"margin-bottom: 15px;\">\n          <p style=\"margin: 0; color: #6b7280; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;\">Kullanıcı Adınız (Mail)</p>\n          <p style=\"margin: 5px 0 0 0; color: #1f2937; font-size: 16px; font-weight: 600;\">{{ $json.email }}</p>\n        </div>\n\n        <div>\n          <p style=\"margin: 0; color: #6b7280; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;\">Yeni Şifreniz</p>\n          <p style=\"margin: 5px 0 0 0; color: #4F46E5; font-size: 24px; font-weight: 700; font-family: 'Courier New', Courier, monospace; letter-spacing: 2px;\">\n            {{ $('Code (Kullanıcı Filtrele)').item.json.generatedPassword }}\n          </p>\n        </div>\n        \n      </div>\n\n      <p style=\"font-size: 16px; line-height: 1.6; color: #4b5563;\">\n        Aşağıdaki butona tıklayarak veya linki tarayıcınıza yapıştırarak panele giriş yapabilirsiniz:\n      </p>\n\n      <div style=\"text-align: center; margin: 30px 0;\">\n        <a href=\"https://muhittinuzun.github.io/FismatikMusteriPaneli/\" style=\"background-color: #4F46E5; color: #ffffff; text-decoration: none; padding: 12px 30px; border-radius: 6px; font-weight: 600; display: inline-block;\">Panele Giriş Yap</a>\n      </div>\n\n      <p style=\"font-size: 14px; color: #6b7280; text-align: center; word-break: break-all;\">\n        <a href=\"https://muhittinuzun.github.io/FismatikMusteriPaneli/\" style=\"color: #4F46E5;\">https://muhittinuzun.github.io/FismatikMusteriPaneli/</a>\n      </p>\n\n      <br>\n      \n      <p style=\"font-size: 16px; color: #1f2937; font-weight: bold; margin-bottom: 5px;\">\n        İyi çalışmalar dileriz,\n      </p>\n      <p style=\"font-size: 16px; color: #4F46E5; margin-top: 0; font-weight: 600;\">\n        Fiş Fatura Ekibi\n      </p>\n    </div>\n\n    <div style=\"background-color: #f3f4f6; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb;\">\n      <p style=\"margin: 0 0 10px 0; font-size: 12px; color: #ef4444; font-weight: 600;\">\n        ⚠️ Güvenliğiniz için giriş yaptıktan sonra şifrenizi değiştiriniz.\n      </p>\n      <p style=\"margin: 0; font-size: 12px; color: #9ca3af;\">\n        © 2025 Fiş Fatura. Bu mesaj otomatik olarak oluşturulmuştur.\n      </p>\n    </div>\n  </div>\n</div>",
+                "options": {
+                    "appendAttribution": false,
+                    "senderName": "Fiş Fatura Destek"
+                }
+            },
+            "type": "n8n-nodes-base.gmail",
+            "typeVersion": 2.1,
+            "position": [
+                1152,
+                -112
+            ],
+            "id": "e92f1b76-2294-4c08-9ce9-a646f302cda6",
+            "name": "Send a message (Mail Gönder)",
+            "webhookId": "563f6f1d-bed1-447d-851a-d77799594306",
+            "credentials": {
+                "gmailOAuth2": {
+                    "id": "EUn4cdeYkQUXRdxL",
+                    "name": "fis takip"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "operation": "get",
+                "tableId": "users",
+                "filters": {
+                    "conditions": [
+                        {
+                            "keyName": "email",
+                            "keyValue": "={{ $json.email }}"
+                        },
+                        {}
+                    ]
+                }
+            },
+            "type": "n8n-nodes-base.supabase",
+            "typeVersion": 1,
+            "position": [
+                944,
+                -112
+            ],
+            "id": "d29b0004-291e-49ec-8a9e-83b541939721",
+            "name": "Get a row",
+            "credentials": {
+                "supabaseApi": {
+                    "id": "3ZlBClCMHxbUdAF1",
+                    "name": "itt fişmatik saas"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "method": "PUT",
+                "url": "=https://hequoxateionmtfjzkxl.supabase.co/auth/v1/admin/users/{{ $json.userId }}",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhlcXVveGF0ZWlvbm10Zmp6a3hsIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NTI1ODkwMCwiZXhwIjoyMDgwODM0OTAwfQ.FgWiBmWeBprN8QemBL4ZS_9oy0FBuUY8PIZaaVfgKD4"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhlcXVveGF0ZWlvbm10Zmp6a3hsIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NTI1ODkwMCwiZXhwIjoyMDgwODM0OTAwfQ.FgWiBmWeBprN8QemBL4ZS_9oy0FBuUY8PIZaaVfgKD4"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ { \"password\": $json.generatedPassword } }}",
+                "options": {}
+            },
+            "id": "3da31e92-ff4b-452f-b70c-08b306f82079",
+            "name": "HTTP Request (Şifre Güncelle - KESİN)",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                736,
+                -112
+            ]
+        },
+        {
+            "parameters": {
+                "sendTo": "={{ $json.email }}",
+                "subject": "Fiş Fatura Şifre Talebi",
+                "message": "=<div style=\"font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f9f9fa; padding: 40px 20px; color: #333;\">\n  <div style=\"max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); overflow: hidden;\">\n    \n    <!-- Başlık Alanı -->\n    <div style=\"background: linear-gradient(135deg, #4F46E5 0%, #3730A3 100%); padding: 30px; text-align: center;\">\n      <h1 style=\"color: #ffffff; margin: 0; font-size: 24px; letter-spacing: 1px; font-weight: 600;\">Fiş Fatura</h1>\n    </div>\n\n    <!-- İçerik Alanı -->\n    <div style=\"padding: 40px 30px;\">\n      <h2 style=\"color: #1f2937; font-size: 20px; margin-top: 0; margin-bottom: 20px;\">Şifre Değişiklik Talebi ℹ️</h2>\n      \n      <p style=\"font-size: 16px; line-height: 1.6; color: #4b5563; margin-bottom: 15px;\">\n        Merhaba,\n      </p>\n      \n      <p style=\"font-size: 16px; line-height: 1.6; color: #4b5563;\">\n        Bu e-posta adresi üzerinden <strong>Fiş Fatura Kullanıcı Paneli</strong> için şifre yenileme talebinde bulunulmuştur.\n      </p>\n\n      <!-- Bilgi Kutusu (Kırmızı tonlarında uyarı) -->\n      <div style=\"background-color: #fff1f2; border-left: 4px solid #ef4444; padding: 20px; margin: 25px 0; border-radius: 4px;\">\n        <p style=\"margin: 0; color: #991b1b; font-size: 15px; line-height: 1.5; font-weight: 500;\">\n           Sistemlerimizde yapılan kontrolde, bu e-posta adresiyle <strong>({{ $json.email }})</strong> eşleşen bir kayıt bulunamamıştır.\n        </p>\n      </div>\n\n      <p style=\"font-size: 16px; line-height: 1.6; color: #4b5563;\">\n        <strong>Bu durumda yapabilecekleriniz:</strong>\n      </p>\n      \n      <ul style=\"color: #4b5563; font-size: 16px; line-height: 1.6; padding-left: 20px; margin-top: 10px;\">\n        <li style=\"margin-bottom: 8px;\">Şifre talebini siz yapmadıysanız, lütfen bu e-postayı dikkate almayınız.</li>\n        <li style=\"margin-bottom: 8px;\">Sisteme farklı bir e-posta adresi ile kayıt olduysanız, lütfen ilgili adres ile tekrar deneyiniz.</li>\n        <li>Bir hata olduğunu düşünüyorsanız, lütfen destek ekibimizle iletişime geçiniz.</li>\n      </ul>\n\n      <div style=\"text-align: center; margin: 30px 0;\">\n        <a href=\"https://muhittinuzun.github.io/FismatikMusteriPaneli/\" style=\"background-color: #4F46E5; color: #ffffff; text-decoration: none; padding: 12px 30px; border-radius: 6px; font-weight: 600; display: inline-block;\">Panele Dön</a>\n      </div>\n\n      <br>\n      \n      <p style=\"font-size: 16px; color: #1f2937; font-weight: bold; margin-bottom: 5px;\">\n        İyi çalışmalar dileriz,\n      </p>\n      <p style=\"font-size: 16px; color: #4F46E5; margin-top: 0; font-weight: 600;\">\n        Fiş Fatura Ekibi\n      </p>\n    </div>\n\n    <!-- Alt Bilgi -->\n    <div style=\"background-color: #f3f4f6; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb;\">\n      <p style=\"margin: 0; font-size: 12px; color: #9ca3af;\">\n        © 2025 Fiş Fatura. Bu mesaj otomatik olarak oluşturulmuştur.\n      </p>\n    </div>\n  </div>\n</div>",
+                "options": {
+                    "appendAttribution": false,
+                    "senderName": "Fiş Fatura Destek Ekibi"
+                }
+            },
+            "type": "n8n-nodes-base.gmail",
+            "typeVersion": 2.1,
+            "position": [
+                752,
+                96
+            ],
+            "id": "1430089e-c765-4d73-a42f-28f28cd3c511",
+            "name": "Send a message",
+            "webhookId": "2e77e777-c27c-4003-824d-1884d95e4ab8",
+            "credentials": {
+                "gmailOAuth2": {
+                    "id": "EUn4cdeYkQUXRdxL",
+                    "name": "fis takip"
+                }
+            }
+        }
+    ],
+    "connections": {
+        "şifre iste": {
+            "main": [
+                [
+                    {
+                        "node": "Code (Şifre Üret)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Code (Şifre Üret)": {
+            "main": [
+                [
+                    {
+                        "node": "Auth UID Bul (GET)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Auth UID Bul (GET)": {
+            "main": [
+                [
+                    {
+                        "node": "Code (Kullanıcı Filtrele)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Code (Kullanıcı Filtrele)": {
+            "main": [
+                [
+                    {
+                        "node": "If (Kullanıcı Bulundu Mu?)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "If (Kullanıcı Bulundu Mu?)": {
+            "main": [
+                [
+                    {
+                        "node": "HTTP Request (Şifre Güncelle - KESİN)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Send a message",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get a row": {
+            "main": [
+                [
+                    {
+                        "node": "Send a message (Mail Gönder)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "HTTP Request (Şifre Güncelle - KESİN)": {
+            "main": [
+                [
+                    {
+                        "node": "Get a row",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "pinData": {},
+    "meta": {
+        "templateCredsSetupCompleted": true,
+        "instanceId": "6f076ed0cacd38fc2ba8ffa68ee2e157985f657f98d37b30667e4135afe7d023"
+    }
+}

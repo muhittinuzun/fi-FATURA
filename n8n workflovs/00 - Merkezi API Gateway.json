@@ -1,0 +1,461 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "fismatik-gateway",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "5c66d69b-ca22-4b94-896a-6eda064f72b2",
+      "name": "Gateway Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        1520,
+        2240
+      ],
+      "webhookId": "fismatik-gateway"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $json.body || $json;\nif (!body.action) throw new Error('action zorunlu');\n\nconst action = body.action.trim().toLowerCase();\nconst payload = body.payload || {};\nconst session_key = body.session_key || '';\n\n// Oturum gerektiren action'lar\nconst SESSION_REQUIRED = ['check_quota', 'upload_receipt', 'get_reports'];\nif (SESSION_REQUIRED.includes(action) && !session_key) {\n  throw new Error('Bu islem icin session_key zorunlu');\n}\n\nreturn [{ json: { action, payload, session_key, _step: 1 } }];"
+      },
+      "id": "f7cb372f-f7a4-435c-8e2b-d44653476a0f",
+      "name": "Validate Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1792,
+        2240
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "upload_receipt",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "e9750c11-d63f-4266-b6c3-2161bd9caeb6"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "b3cc8a95-8520-4f6c-8053-f8fe9e2b836d",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "upload_receipt",
+                    "operator": {
+                      "type": "string",
+                      "operation": "notEquals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "295447a7-0d01-43f8-a087-59a253a8387a",
+      "name": "Upload mu?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        2048,
+        2240
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ================================================================\n//  DYNAMIC SQL ENGINE - Tum action + step kombinasyonlari burada\n// ================================================================\nconst { action, payload, session_key, _step, _prev } = $json;\n\nconst ACTIONS = {\n\n  // ==================== LOGIN ====================\n  login: {\n    1: {\n      validate: () => {\n        if (!payload.email || !payload.password)\n          throw new Error('email ve password zorunlu');\n      },\n      sql: `SELECT u.id, u.company_id, u.role, u.is_super_admin\n            FROM users u\n            WHERE lower(u.email) = lower($1)\n              AND u.password_hash = crypt($2, u.password_hash)\n              AND u.status = 'true'\n            LIMIT 1`,\n      params: () => [payload.email, payload.password]\n    },\n    2: {\n      sql: `INSERT INTO user_sessions (user_id, session_key, expires_at, user_agent)\n            VALUES ($1, encode(gen_random_bytes(32), 'hex'), now() + interval '15 days', $2)\n            RETURNING session_key, expires_at`,\n      params: () => [_prev.id, payload.user_agent || 'web']\n    }\n  },\n\n  // ==================== REGISTER ====================\n  register: {\n    1: {\n      validate: () => {\n        if (!payload.company_name || !payload.email || !payload.password)\n          throw new Error('company_name, email ve password zorunlu');\n      },\n      sql: `SELECT create_trial_company_and_admin($1, $2, crypt($3, gen_salt('bf')), $4) AS user_id`,\n      params: () => [payload.company_name, payload.email, payload.password, payload.telegram_id || null]\n    }\n  },\n\n  // ==================== CHECK QUOTA ====================\n  check_quota: {\n    1: {\n      sql: `SELECT c.id AS company_id, check_company_quota(c.id) AS allow\n            FROM user_sessions s\n            JOIN users u ON u.id = s.user_id\n            JOIN companies c ON c.id = u.company_id\n            WHERE s.session_key = $1\n              AND s.revoked_at IS NULL AND s.expires_at > now()\n            LIMIT 1`,\n      params: () => [session_key]\n    }\n  },\n\n  // ==================== GET REPORTS ====================\n  get_reports: {\n    1: {\n      sql: `SELECT u.id AS user_id, u.role, u.is_super_admin, u.company_id,\n                   c.company_name, c.plan_type, c.monthly_limit, c.extra_credits,\n                   c.used_this_month, c.status\n            FROM user_sessions s\n            JOIN users u ON u.id = s.user_id\n            LEFT JOIN companies c ON c.id = u.company_id\n            WHERE s.session_key = $1\n              AND s.revoked_at IS NULL AND s.expires_at > now()\n            LIMIT 1`,\n      params: () => [session_key]\n    }\n  },\n\n  // ==================== FORGOT PASSWORD ====================\n  forgot_password: {\n    1: {\n      validate: () => {\n        if (!payload.email) throw new Error('email zorunlu');\n      },\n      sql: `SELECT id, email, coalesce(full_name, split_part(email, '@', 1)) AS full_name\n            FROM users\n            WHERE lower(email) = lower($1) AND status = 'true'\n            LIMIT 1`,\n      params: () => [payload.email]\n    },\n    2: {\n      sql: `UPDATE users\n            SET password_hash = crypt($1, gen_salt('bf')), updated_at = now()\n            WHERE id = $2 RETURNING id`,\n      params: () => [_prev.temp_password, _prev.user_id]\n    }\n  }\n};\n\n// Action kontrolu\nconst actionDef = ACTIONS[action];\nif (!actionDef) {\n  return [{ json: { _done: true, _response: { ok: false, message: 'Bilinmeyen action: ' + action } } }];\n}\n\nconst stepDef = actionDef[_step];\nif (!stepDef) {\n  return [{ json: { _done: true, _response: { ok: false, message: 'Gecersiz step: ' + action + '/' + _step } } }];\n}\n\n// Validasyon\nif (stepDef.validate) stepDef.validate();\n\nreturn [{ json: {\n  action, payload, session_key, _step,\n  _sql: stepDef.sql,\n  _params: stepDef.params(),\n  _prev: _prev || null\n}}];"
+      },
+      "id": "7a73d57d-b2ea-463e-a0d4-12dc3b6171f9",
+      "name": "SQL Engine",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2320,
+        2336
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "{{ $json._sql }}",
+        "options": {
+          "queryReplacement": "={{ $json._params }}"
+        }
+      },
+      "id": "d4ead116-eb40-4617-ab71-e4b9168b001d",
+      "name": "PG Execute",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        2592,
+        2336
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "c0xPSSHQBi5bwXF5",
+          "name": "FİSmatik"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ================================================================\n//  STEP ROUTER - Sonucu degerlendir, sonraki step veya response uret\n// ================================================================\nconst input = $('SQL Engine').first().json;\nconst { action, payload, session_key, _step } = input;\nconst rows = $input.all().map(i => i.json);\nconst row = rows[0] || {};\n\n// ---------- LOGIN STEP 1 → step 2 ----------\nif (action === 'login' && _step === 1) {\n  if (!row.id) throw new Error('Gecersiz email veya sifre');\n  return [{ json: {\n    action, payload, session_key,\n    _step: 2,\n    _prev: row,\n    _done: false\n  }}];\n}\n\n// ---------- LOGIN STEP 2 → bitti ----------\nif (action === 'login' && _step === 2) {\n  return [{ json: {\n    _done: true,\n    _response: { ok: true, session_key: row.session_key, expires_at: row.expires_at }\n  }}];\n}\n\n// ---------- REGISTER → bitti ----------\nif (action === 'register') {\n  return [{ json: {\n    _done: true,\n    _response: { ok: true, message: 'Kayit olusturuldu', user_id: row.user_id }\n  }}];\n}\n\n// ---------- CHECK QUOTA → bitti ----------\nif (action === 'check_quota') {\n  return [{ json: {\n    _done: true,\n    _response: { ok: true, allow: row.allow || false, company_id: row.company_id || '' }\n  }}];\n}\n\n// ---------- GET REPORTS → bitti ----------\nif (action === 'get_reports') {\n  if (!row.user_id) throw new Error('Gecersiz veya suresi dolmus oturum');\n  return [{ json: {\n    _done: true,\n    _response: {\n      ok: true,\n      profile: { user_id: row.user_id, role: row.role, is_super_admin: row.is_super_admin },\n      company: {\n        company_id: row.company_id, name: row.name, plan_type: row.plan_type,\n        monthly_limit: row.monthly_limit, extra_credits: row.extra_credits,\n        used_this_month: row.used_this_month, status: row.status\n      }\n    }\n  }}];\n}\n\n// ---------- FORGOT STEP 1 → kullanici var mi? ----------\nif (action === 'forgot_password' && _step === 1) {\n  const SAFE_MSG = 'Eger e-posta sistemde kayitliysa gecici sifre gonderildi.';\n\n  if (!row.id) {\n    // Kullanici yok - guvenlik icin ayni mesaj\n    return [{ json: { _done: true, _response: { ok: true, message: SAFE_MSG } } }];\n  }\n\n  // Gecici sifre uret\n  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';\n  let tempPassword = '';\n  for (let i = 0; i < 8; i++) {\n    tempPassword += chars.charAt(Math.floor(Math.random() * chars.length));\n  }\n\n  return [{ json: {\n    action, payload, session_key,\n    _step: 2,\n    _prev: { ...row, temp_password: tempPassword },\n    _done: false,\n    _send_mail: true,\n    _mail_data: { email: row.email, full_name: row.full_name, temp_password: tempPassword }\n  }}];\n}\n\n// ---------- FORGOT STEP 2 → mail gonder ----------\nif (action === 'forgot_password' && _step === 2) {\n  const mailData = input._mail_data || (input._prev || {});\n  return [{ json: {\n    _done: 'send_mail',\n    _mail_data: mailData,\n    _response: { ok: true, message: 'Eger e-posta sistemde kayitliysa gecici sifre gonderildi.' }\n  }}];\n}\n\n// Fallback\nreturn [{ json: { _done: true, _response: { ok: true, data: row } } }];"
+      },
+      "id": "7beebabf-c6fb-4d54-b22d-7832f8e65cb6",
+      "name": "Step Router",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2832,
+        2336
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json._done }}",
+                    "rightValue": "false",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "false",
+                      "singleValue": true
+                    },
+                    "id": "6c89360c-0289-4916-bf7e-40718ae31c1c"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ String($json._done) }}",
+                    "rightValue": "send_mail",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "9e109469-f4d6-4c48-925e-21da5b02664d"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json._done }}",
+                    "rightValue": "send_mail",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    },
+                    "id": "92e716a6-6e3f-4045-80cd-895fe9951927"
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "3cac527f-9d36-4176-a689-338e3ddb7589",
+      "name": "Next?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        3072,
+        2336
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json._mail_data.email }}",
+        "subject": "Yeni Gecici Sifreniz",
+        "message": "=Merhaba {{ $json._mail_data.full_name }},\n\nSifremi unuttum talebiniz alindi.\nGecici sifreniz: {{ $json._mail_data.temp_password }}\n\nGuvenlik icin giris yaptiktan sonra sifrenizi degistirin.\n\nPanel: https://muhittinuzun.github.io/FismatikMusteriPaneli/",
+        "options": {
+          "appendAttribution": false,
+          "senderName": "Fismatik Destek"
+        }
+      },
+      "id": "e73fd7ba-e692-428a-a164-4fd6518b994f",
+      "name": "Send Mail",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        3360,
+        2208
+      ],
+      "webhookId": "d2793cde-9f12-4212-8b9a-c8a958d75ac4",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "EUn4cdeYkQUXRdxL",
+          "name": "fis takip"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json._response || { ok: true }) }}",
+        "options": {}
+      },
+      "id": "cd4d35b7-9799-4aa0-b158-f72970133394",
+      "name": "Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        3632,
+        2448
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "R3S-6QwEcLRzIZfHS6zu2",
+          "mode": "id",
+          "cachedResultUrl": "/workflow/R3S-6QwEcLRzIZfHS6zu2"
+        },
+        "options": {}
+      },
+      "id": "cd5f0de0-0905-48fc-a819-ef63a63e32b6",
+      "name": "Execute OCR Workflow",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        2320,
+        2096
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "r9J_4EhIoYDg27G2K2_nj",
+          "mode": "id",
+          "cachedResultUrl": "/workflow/r9J_4EhIoYDg27G2K2_nj"
+        },
+        "options": {}
+      },
+      "id": "8badfcdf-4575-4582-90cc-c8f0c88bc099",
+      "name": "Execute Save Workflow",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        2592,
+        2096
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true, message: 'Fis isleme kuyruga alindi' }) }}",
+        "options": {}
+      },
+      "id": "d73e1ac9-6cd9-4815-a3e7-cc37b5c61c0a",
+      "name": "Response: Upload1",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        2832,
+        2096
+      ]
+    }
+  ],
+  "connections": {
+    "Gateway Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Input": {
+      "main": [
+        [
+          {
+            "node": "Upload mu?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload mu?": {
+      "main": [
+        [
+          {
+            "node": "Execute OCR Workflow",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "SQL Engine",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SQL Engine": {
+      "main": [
+        [
+          {
+            "node": "PG Execute",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PG Execute": {
+      "main": [
+        [
+          {
+            "node": "Step Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Step Router": {
+      "main": [
+        [
+          {
+            "node": "Next?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Next?": {
+      "main": [
+        [
+          {
+            "node": "SQL Engine",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Mail",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Mail": {
+      "main": [
+        [
+          {
+            "node": "Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute OCR Workflow": {
+      "main": [
+        [
+          {
+            "node": "Execute Save Workflow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Save Workflow": {
+      "main": [
+        [
+          {
+            "node": "Response: Upload1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "6f076ed0cacd38fc2ba8ffa68ee2e157985f657f98d37b30667e4135afe7d023"
+  }
+}

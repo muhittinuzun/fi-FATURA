@@ -1,0 +1,1720 @@
+{
+    "nodes": [
+        {
+            "parameters": {
+                "updates": [
+                    "message",
+                    "callback_query"
+                ],
+                "additionalFields": {
+                    "download": true
+                }
+            },
+            "id": "dd3adae7-4b15-44f3-89e0-39888984b0cb",
+            "name": "fis gonder",
+            "type": "n8n-nodes-base.telegramTrigger",
+            "typeVersion": 1,
+            "position": [
+                -5504,
+                2832
+            ],
+            "webhookId": "4e3d9579-4719-4ea9-a523-b57c2c6442fd",
+            "credentials": {
+                "telegramApi": {
+                    "id": "CFzJKjsFQ3QPP0Vt",
+                    "name": "ITTFİSMATİKBOT"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "operation": "executeQuery",
+                "query": "=UPDATE users SET telegram_id = '{{ $('fis gonder').item.json.message.chat.id }}' WHERE phone_number = '{{ $json.phone_number }}' RETURNING *;",
+                "options": {}
+            },
+            "name": "PostgreSQL (ID Güncelle)",
+            "type": "n8n-nodes-base.postgres",
+            "typeVersion": 2.5,
+            "position": [
+                -2432,
+                1680
+            ],
+            "id": "646b5b05-b313-444d-9958-2346d6049659",
+            "credentials": {
+                "postgres": {
+                    "id": "IAh6S2TFeciD7KIU",
+                    "name": "suriye mirasi"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "operation": "executeQuery",
+                "query": "SELECT id, company_id, full_name, role FROM users WHERE telegram_id = '{{ $json.message.chat.id.toString() }}' LIMIT 1;",
+                "options": {}
+            },
+            "name": "PostgreSQL (Kimlik Kontrol)",
+            "type": "n8n-nodes-base.postgres",
+            "typeVersion": 2.5,
+            "position": [
+                -3856,
+                2288
+            ],
+            "id": "12dd046f-4c06-4f1c-bff1-8caf9735dfcd",
+            "alwaysOutputData": true,
+            "credentials": {
+                "postgres": {
+                    "id": "c0xPSSHQBi5bwXF5",
+                    "name": "FİSmatik"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "operation": "executeQuery",
+                "query": "=SELECT * FROM users WHERE phone_number = '+{{ $json.message.contact.phone_number }}' LIMIT 1;",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.postgres",
+            "typeVersion": 2.5,
+            "position": [
+                -3376,
+                1744
+            ],
+            "id": "ee3d1d5b-eaa6-4b84-a567-9b615184fba8",
+            "name": "PostgreSQL Telefon Kontrol",
+            "alwaysOutputData": true,
+            "credentials": {
+                "postgres": {
+                    "id": "c0xPSSHQBi5bwXF5",
+                    "name": "FİSmatik"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "operation": "executeQuery",
+                "query": "=SELECT * FROM companies WHERE is_active = true AND id = '{{ $json.company_id }}' LIMIT 1;",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.postgres",
+            "typeVersion": 2.5,
+            "position": [
+                -2592,
+                2400
+            ],
+            "id": "a8f8cd08-b6a3-49f4-9725-342cc70829b5",
+            "name": "PostgreSQL Şirket Kontrol",
+            "alwaysOutputData": true,
+            "credentials": {
+                "postgres": {
+                    "id": "c0xPSSHQBi5bwXF5",
+                    "name": "FİSmatik"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "operation": "executeQuery",
+                "query": "=UPDATE companies SET is_active = true WHERE id = '{{ $json.company_id }}' RETURNING *;",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.postgres",
+            "typeVersion": 2.5,
+            "position": [
+                -3824,
+                1232
+            ],
+            "id": "fde9a051-8945-4dd9-8db7-57fcc1c45fc0",
+            "name": "PostgreSQL Şirketi Aktif Et",
+            "credentials": {
+                "postgres": {
+                    "id": "c0xPSSHQBi5bwXF5",
+                    "name": "FİSmatik"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "=https://vision.googleapis.com/v1/images:annotate?key=AIzaSyBltZRduPsCwMxqTP1-AwQqBHvS2fHjHt4",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"requests\": [\n    {\n      \"image\": {\n        \"content\": \"{{ $json.data }}\"\n      },\n      \"features\": [\n        {\n          \"type\": \"TEXT_DETECTION\"\n        },\n        {\n          \"type\": \"DOCUMENT_TEXT_DETECTION\",\n          \"maxResults\": 1\n        }\n      ]\n    }\n  ]\n}",
+                "options": {}
+            },
+            "id": "33ff9e97-093d-4b1c-a943-7a5d75b3f99b",
+            "name": "Gemini OCR",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                -896,
+                2400
+            ]
+        },
+        {
+            "parameters": {
+                "operation": "editMessageText",
+                "chatId": "={{ $('fis gonder').first().json.message.chat.id }}",
+                "messageId": "={{ $('Merge').item.json.result.message_id }}",
+                "text": "={{ $('dosyayı getir1').first().json.dosya_adi }}} isimli fişiniz başarıyla kaydedildi!\n\n✅ {{ $json.isletme_adi }}  {{ $json.toplam_tutar }}",
+                "additionalFields": {}
+            },
+            "id": "bfd1b465-8b66-478a-b34a-fe89cdee7917",
+            "name": "Onay Mesajı Gönder",
+            "type": "n8n-nodes-base.telegram",
+            "typeVersion": 1,
+            "position": [
+                1584,
+                2672
+            ],
+            "webhookId": "8b7c7918-747e-43eb-a25f-f5a731bd07dd",
+            "credentials": {
+                "telegramApi": {
+                    "id": "CFzJKjsFQ3QPP0Vt",
+                    "name": "ITTFİSMATİKBOT"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "operation": "binaryToPropery",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.extractFromFile",
+            "typeVersion": 1,
+            "position": [
+                -1120,
+                2400
+            ],
+            "id": "b3c0dda5-5f79-4ccb-bdc6-5f20da9ea428",
+            "name": "Extract from File1"
+        },
+        {
+            "parameters": {
+                "jsCode": "const item = items[0];\nconst binaryFileName = Object.keys(item.binary)[0];\nconst binaryData = item.binary[binaryFileName].data; \nconst base64Image = binaryData.toString('base64');\nitem.json.base64Image = base64Image;\nreturn [item];"
+            },
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                -1344,
+                2400
+            ],
+            "id": "d1f4fc28-9b5e-4666-8c89-38c325e3086d",
+            "name": "Code in JavaScript1"
+        },
+        {
+            "parameters": {
+                "modelId": {
+                    "__rl": true,
+                    "value": "models/gemini-2.5-flash",
+                    "mode": "list",
+                    "cachedResultName": "models/gemini-2.5-flash"
+                },
+                "messages": {
+                    "values": [
+                        {
+                            "content": "={{ $json.user_prompt }}"
+                        }
+                    ]
+                },
+                "jsonOutput": true,
+                "options": {
+                    "systemMessage": "={{ $json.system_prompt }}",
+                    "temperature": 0
+                }
+            },
+            "type": "@n8n/n8n-nodes-langchain.googleGemini",
+            "typeVersion": 1,
+            "position": [
+                224,
+                2304
+            ],
+            "id": "55fadffd-5784-45ff-bcb6-310a15d3cc0b",
+            "name": "Message a model1",
+            "credentials": {
+                "googlePalmApi": {
+                    "id": "mg6Qkierq2X8bX9f",
+                    "name": "DEMOPROJE"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "jsCode": "// 1. Gemini'den gelen ham metni al\nconst geminiResponse = $input.first().json.content || $input.first().json.response || $input.first().json;\nconst rawText = geminiResponse.parts ? geminiResponse.parts[0].text : (geminiResponse.text || JSON.stringify(geminiResponse));\n\n// 2. Markdown temizliği\nconst cleanJson = rawText.replace(/```json/g, '').replace(/```/g, '').trim();\n\nlet ocrData;\ntry {\n    ocrData = JSON.parse(cleanJson);\n} catch (e) {\n    console.log(\"JSON Parse Hatası:\", e.message);\n    ocrData = {\n        IsletmeAdi: \"Okunamadı\",\n        ToplamTutar: 0,\n        Tarih: null,\n        Saat: null,\n        OdemeTipi: null,\n        UrunlerVeKDVBilgileri: []\n    };\n}\n\n// 3. TARİH VE SAAT FORMATLAMA\nfunction normalizeDate(dateStr) {\n    if (!dateStr) return new Date().toISOString().split('T')[0];\n    const yyyyMatch = dateStr.match(/^(\\d{4})[./-](\\d{1,2})[./-](\\d{1,2})/);\n    if (yyyyMatch) {\n        const year = yyyyMatch[1];\n        const month = yyyyMatch[2].padStart(2, '0');\n        const day = yyyyMatch[3].padStart(2, '0');\n        return `${year}-${month}-${day}`;\n    }\n    const ddmmyyyyMatch = dateStr.match(/^(\\d{1,2})[./-](\\d{1,2})[./-](\\d{4})/);\n    if (ddmmyyyyMatch) {\n        const day = ddmmyyyyMatch[1].padStart(2, '0');\n        const month = ddmmyyyyMatch[2].padStart(2, '0');\n        const year = ddmmyyyyMatch[3];\n        return `${year}-${month}-${day}`;\n    }\n    return new Date().toISOString().split('T')[0];\n}\n\nfunction normalizeTime(timeStr) {\n    if (!timeStr) return \"00:00:00\";\n    if (timeStr.match(/^\\d{1,2}:\\d{2}$/)) {\n        return timeStr + \":00\";\n    }\n    return timeStr;\n}\n\n// 4. OTOMATİK KATEGORİ BELİRLEME\nlet mainCategory = 'Genel';\nconst items = ocrData.UrunlerVeKDVBilgileri || [];\nif (items.length > 0) {\n    const categories = items.map(item => item.Kategori).filter(c => c && c.trim() !== '');\n    const uniqueCategories = [...new Set(categories)];\n    if (uniqueCategories.length === 1) {\n        mainCategory = uniqueCategories[0];\n    } else if (uniqueCategories.length > 1) {\n        mainCategory = 'Çoklu';\n    }\n}\n\n// 5. NODE REFERANSLARI - DEBUG\nlet userId = null, companyId = null, imageUrl = null, telegramMessageId = null;\nlet debugInfo = {};\n\ntry {\n    const userNode = $('PostgreSQL (Kimlik Kontrol)').first().json;\n    userId = userNode.id;\n    companyId = userNode.company_id;\n    debugInfo.user = \"OK\";\n} catch (e) { debugInfo.user = e.message; }\n\ntry {\n    const uploadNode = $('Upload a file').first().json;\n    debugInfo.s3_keys = Object.keys(uploadNode);\n    debugInfo.s3_data = uploadNode;\n    const key = uploadNode.Key || uploadNode.key;\n    if (key) {\n        imageUrl = `https://s3.eu-central-1.amazonaws.com/cdn.fisfatura.com/${key}`;\n    }\n} catch (e) { debugInfo.s3 = e.message; }\n\ntry {\n    const telegramNode = $('gorseli_aldim1').first().json;\n    debugInfo.telegram_keys = Object.keys(telegramNode);\n    debugInfo.telegram_data = telegramNode;\n    telegramMessageId = telegramNode.message_id\n        || (telegramNode.result && telegramNode.result.message_id)\n        || null;\n} catch (e) { debugInfo.telegram = e.message; }\n\n// 6. ÇIKTIYI HAZIRLA\nreturn {\n    json: {\n        company_id: companyId,\n        user_id: userId,\n        gorsel_url: imageUrl,\n        isletme_adi: ocrData.IsletmeAdi || \"Bilinmeyen İşletme\",\n        tarih: normalizeDate(ocrData.Tarih),\n        saat: normalizeTime(ocrData.Saat),\n        fis_no: ocrData.FisNumarasi || null,\n        odeme_tipi: ocrData.OdemeTipi || null,\n        toplam_tutar: typeof ocrData.ToplamTutar === 'number' ? ocrData.ToplamTutar : parseFloat(ocrData.ToplamTutar || 0),\n        para_birimi: \"TRY\",\n        kart_son_4: ocrData.KartSon4Hane || null,\n        kategori: mainCategory,\n        ocr_detaylari: { urunler: items },\n        durum: 'beklemede',\n        telegram_message_id: telegramMessageId,\n        _debug: debugInfo\n    }\n};"
+            },
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                576,
+                2304
+            ],
+            "id": "7d4b6c89-bbe5-4b37-b855-4d0e7e4517d0",
+            "name": "Code in JavaScript6"
+        },
+        {
+            "parameters": {
+                "jsCode": "// OCR sonucunu al\nconst ocrResult = $json.responses?.[0]?.textAnnotations?.[0]?.description || '';\n\nif (!ocrResult || ocrResult.trim().length < 10) {\n  return [{ json: { isFis: false, reason: 'OCR sonucu boş veya çok kısa' } }];\n}\n\nconst ocrText = ocrResult.toLowerCase();\n\nconst fisKeywords = [\n  'kdv', 'KDV', 'toplam', 'tutar', 'fiş', 'fis', 'fatura', 'ödeme',\n  'kart', 'nakit', 'tarih', 'saat', 'matrah', 'vergi', 'iade',\n  'para üstü', 'paraustu', 'bakiye', 'kasa', 'satış', 'ürün',\n  'adet', 'birim', 'fiyat'\n];\n\nconst hasNumbers = /\\d+[.,]?\\d*/.test(ocrText);\nconst hasDate = /\\d{1,2}[./]\\d{1,2}[./]\\d{2,4}/.test(ocrText);\n\nlet keywordCount = 0;\nfor (const keyword of fisKeywords) {\n  if (ocrText.includes(keyword)) {\n    keywordCount++;\n  }\n}\n\nconst isFis = keywordCount >= 3 && hasNumbers;\n\nlet reason = '';\nif (!isFis) {\n  if (keywordCount < 3) {\n    reason = `Fişe özgü kelime sayısı yetersiz (${keywordCount}/3)`;\n  } else if (!hasNumbers) {\n    reason = 'Sayısal değer (fiyat) bulunamadı';\n  } else {\n    reason = 'Fiş kriterlerini karşılamıyor';\n  }\n}\n\nreturn [{ \n  json: { \n    ...$json,\n    isFis: isFis,\n    reason: reason,\n    keywordCount: keywordCount,\n    hasNumbers: hasNumbers,\n    hasDate: hasDate\n  } \n}];"
+            },
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                -672,
+                2400
+            ],
+            "id": "462545cf-f0d9-4d88-bb95-ba5e52add5ff",
+            "name": "Fiş mi değil mi?1"
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "options": {
+                        "caseSensitive": true,
+                        "leftValue": "",
+                        "typeValidation": "strict",
+                        "version": 2
+                    },
+                    "conditions": [
+                        {
+                            "id": "fis-kontrol-condition",
+                            "leftValue": "={{ $json.isFis }}",
+                            "rightValue": "true",
+                            "operator": {
+                                "type": "boolean",
+                                "operation": "true",
+                                "singleValue": true
+                            }
+                        }
+                    ],
+                    "combinator": "and"
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2.2,
+            "position": [
+                -448,
+                2400
+            ],
+            "id": "e884cbbc-51c9-46a4-812b-dfd09a270538",
+            "name": "Fiş mi Kontrol IF1"
+        },
+        {
+            "parameters": {
+                "operation": "editMessageText",
+                "chatId": "={{ $('fis gonder').item.json.message.chat.id }}",
+                "messageId": "={{ $('gorseli_aldim1').first().json.result.message_id }}",
+                "text": "=⚠️ **Görsel Analiz Edilemedi**\n\nMaalesef gönderdiğiniz {{ $('dosyayı getir1').item.json.dosya_adi }} adındaki görseli bir fiş veya fatura olarak tanımlayamadım. Lütfen net bir fiş fotoğrafı yükleyip tekrar deneyin.\n\n🧐 **Tespit Edilen Sorun:**\n{{ $('Fiş mi değil mi?1').item.json.reason }}",
+                "additionalFields": {}
+            },
+            "type": "n8n-nodes-base.telegram",
+            "typeVersion": 1.2,
+            "position": [
+                -224,
+                2496
+            ],
+            "id": "9762ed6c-2954-4adc-9e41-056763857f9b",
+            "name": "Fiş Değil Uyarısı1",
+            "webhookId": "8f60621b-e9dc-4aa7-8c19-3de959c2188b",
+            "credentials": {
+                "telegramApi": {
+                    "id": "CFzJKjsFQ3QPP0Vt",
+                    "name": "ITTFİSMATİKBOT"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "rules": {
+                    "values": [
+                        {
+                            "conditions": {
+                                "options": {
+                                    "caseSensitive": true,
+                                    "leftValue": "",
+                                    "typeValidation": "loose",
+                                    "version": 1
+                                },
+                                "conditions": [
+                                    {
+                                        "leftValue": "={{ $json.message.contact }}",
+                                        "rightValue": "",
+                                        "operator": {
+                                            "type": "object",
+                                            "operation": "notEmpty",
+                                            "singleValue": true
+                                        },
+                                        "id": "1c43e767-8998-484c-af37-c53f6649f0d9"
+                                    }
+                                ],
+                                "combinator": "and"
+                            },
+                            "renameOutput": true,
+                            "outputKey": "Telefon Paylaşımı"
+                        }
+                    ]
+                },
+                "options": {
+                    "fallbackOutput": "extra",
+                    "looseTypeValidation": true
+                }
+            },
+            "name": "Trafik Kontrolü1",
+            "type": "n8n-nodes-base.switch",
+            "typeVersion": 3,
+            "position": [
+                -4336,
+                1952
+            ],
+            "id": "88925d35-62f4-40bd-b161-53a10d9cd6a8"
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "options": {
+                        "caseSensitive": true,
+                        "leftValue": "",
+                        "typeValidation": "strict",
+                        "version": 1
+                    },
+                    "conditions": [
+                        {
+                            "id": "1839d0c6-3023-455f-8255-5205562d5128",
+                            "leftValue": "={{ $json.id }}",
+                            "rightValue": "",
+                            "operator": {
+                                "type": "string",
+                                "operation": "notEmpty",
+                                "singleValue": true
+                            }
+                        }
+                    ],
+                    "combinator": "and"
+                },
+                "options": {}
+            },
+            "name": "Kullanıcı Bulundu mu?1",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2,
+            "position": [
+                -3152,
+                1744
+            ],
+            "id": "03ff2f8c-b646-42f3-af55-d64b32a1cca4"
+        },
+        {
+            "parameters": {
+                "chatId": "={{ $('fis gonder').item.json.message.chat.id }}",
+                "text": "✅ Giriş başarılı! Hoş geldiniz. Artık fiş fotoğraflarınızı gönderebilirsiniz.",
+                "additionalFields": {
+                    "appendAttribution": false
+                }
+            },
+            "name": "Başarılı Mesajı1",
+            "type": "n8n-nodes-base.telegram",
+            "typeVersion": 1.2,
+            "position": [
+                -2208,
+                1680
+            ],
+            "id": "c5bfff3c-149b-4145-9c20-73f928b66537",
+            "webhookId": "8e3cca72-43e6-48e3-b8c4-0abd7db8199d",
+            "credentials": {
+                "telegramApi": {
+                    "id": "CFzJKjsFQ3QPP0Vt",
+                    "name": "ITTFİSMATİKBOT"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "chatId": "={{ $('fis gonder').item.json.message.chat.id }}",
+                "text": "❌ Üzgünüm, bu telefon numarası sistemimizde kayıtlı değil. Lütfen kayıt olmak için formu doldurunuz.",
+                "replyMarkup": "inlineKeyboard",
+                "inlineKeyboard": {
+                    "rows": [
+                        {
+                            "row": {
+                                "buttons": [
+                                    {
+                                        "text": "Kayıt Ol",
+                                        "additionalFields": {
+                                            "url": "=https://tally.so/r/b5q8V0?telegram_id={{ $('fis gonder').item.json.message.chat.id }}"
+                                        }
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                },
+                "additionalFields": {
+                    "appendAttribution": false
+                }
+            },
+            "name": "Hata Mesajı1",
+            "type": "n8n-nodes-base.telegram",
+            "typeVersion": 1.2,
+            "position": [
+                -2432,
+                1872
+            ],
+            "id": "1972c067-7de7-41dc-b53d-2e658ad9d02b",
+            "webhookId": "f94c0940-5b41-476b-8e8c-cc33dd1f1af2",
+            "credentials": {
+                "telegramApi": {
+                    "id": "CFzJKjsFQ3QPP0Vt",
+                    "name": "ITTFİSMATİKBOT"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "options": {
+                        "caseSensitive": true,
+                        "leftValue": "",
+                        "typeValidation": "strict",
+                        "version": 1
+                    },
+                    "conditions": [
+                        {
+                            "id": "auth-check",
+                            "leftValue": "={{ $json.id }}",
+                            "rightValue": "",
+                            "operator": {
+                                "type": "string",
+                                "operation": "exists",
+                                "singleValue": true
+                            }
+                        }
+                    ],
+                    "combinator": "and"
+                },
+                "options": {}
+            },
+            "name": "Yetkili mi?1",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2,
+            "position": [
+                -3584,
+                2304
+            ],
+            "id": "5963e402-1b87-469f-b051-693a8e4be7b4"
+        },
+        {
+            "parameters": {
+                "chatId": "={{ $('fis gonder').item.json.message.chat.id }}",
+                "text": "Sizi tanıyamadım. Lütfen giriş yapmak için aşağıdaki butona basıp telefon numaranızı paylaşın.",
+                "replyMarkup": "replyKeyboard",
+                "replyKeyboard": {
+                    "rows": [
+                        {
+                            "row": {
+                                "buttons": [
+                                    {
+                                        "text": "Telefon Numaranızı Paylaşınız",
+                                        "additionalFields": {
+                                            "request_contact": true
+                                        }
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                },
+                "replyKeyboardOptions": {
+                    "resize_keyboard": true,
+                    "one_time_keyboard": true
+                },
+                "additionalFields": {
+                    "appendAttribution": false
+                }
+            },
+            "name": "Giriş İste1",
+            "type": "n8n-nodes-base.telegram",
+            "typeVersion": 1.2,
+            "position": [
+                -2384,
+                3216
+            ],
+            "id": "724773f4-8712-4345-824e-6b2849280674",
+            "webhookId": "a86c68b7-45e9-41cd-a2ed-f6c70fb5a545",
+            "credentials": {
+                "telegramApi": {
+                    "id": "CFzJKjsFQ3QPP0Vt",
+                    "name": "ITTFİSMATİKBOT"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "rules": {
+                    "values": [
+                        {
+                            "conditions": {
+                                "options": {
+                                    "caseSensitive": true,
+                                    "leftValue": "",
+                                    "typeValidation": "strict",
+                                    "version": 2
+                                },
+                                "conditions": [
+                                    {
+                                        "leftValue": "={{ $('fis gonder').item.json.message.photo[0] }}",
+                                        "rightValue": "=",
+                                        "operator": {
+                                            "type": "object",
+                                            "operation": "notEmpty",
+                                            "singleValue": true
+                                        },
+                                        "id": "b0bf3ee7-b31a-49ad-b9cf-39609b0320ba"
+                                    }
+                                ],
+                                "combinator": "and"
+                            }
+                        }
+                    ]
+                },
+                "options": {
+                    "fallbackOutput": "extra"
+                }
+            },
+            "type": "n8n-nodes-base.switch",
+            "typeVersion": 3.3,
+            "position": [
+                -2160,
+                2336
+            ],
+            "id": "83a1e030-7472-4058-940f-f69ebb6687fb",
+            "name": "başlayalım1"
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "options": {
+                        "caseSensitive": true,
+                        "leftValue": "",
+                        "typeValidation": "strict",
+                        "version": 2
+                    },
+                    "conditions": [
+                        {
+                            "id": "368cd07a-7f2e-4fc1-a286-27d65cfca73a",
+                            "leftValue": "={{ $json.callback_query }}",
+                            "rightValue": "",
+                            "operator": {
+                                "type": "object",
+                                "operation": "notEmpty",
+                                "singleValue": true
+                            }
+                        }
+                    ],
+                    "combinator": "and"
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2.2,
+            "position": [
+                -4752,
+                1920
+            ],
+            "id": "b8b19b4f-aad8-430f-96e0-3b2eae99d1cf",
+            "name": "If2"
+        },
+        {
+            "parameters": {
+                "assignments": {
+                    "assignments": [
+                        {
+                            "id": "14a7f6ff-c1a0-49c6-a285-0e8cf1f71116",
+                            "name": "dosya_adi",
+                            "value": "={{ $('fis gonder').item.json.message.chat.id }}_{{ $now.format('yyyyMMdd_HHmmss') }}.jpg",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.set",
+            "typeVersion": 3.4,
+            "position": [
+                -1824,
+                2336
+            ],
+            "id": "ce963616-0245-4a7e-a641-174f59b8d27d",
+            "name": "Dosya Adi Hazirla1"
+        },
+        {
+            "parameters": {
+                "mode": "combine",
+                "combineBy": "combineByPosition",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.merge",
+            "typeVersion": 3.2,
+            "position": [
+                -1568,
+                2896
+            ],
+            "id": "2dab87ee-b421-4adb-aacf-053767762a5e",
+            "name": "dosyayı getir1",
+            "alwaysOutputData": true
+        },
+        {
+            "parameters": {
+                "chatId": "={{ $('form verilerini temizle1').item.json.admin_chat_id }}",
+                "text": "=🎉 **Tebrikler! Hesabınız Başarıyla Aktif Edildi** 🚀\n\nÖdemeniz onaylandı ve şirket hesabınız kullanıma açıldı. İşte giriş bilgileriniz:\n\n📧 **E-Posta:** {{ $('user oluştur1').item.json.email }}\n🔑 **Geçici Şifre:** {{ $('form verilerini temizle1').item.json.generated_password }}\n🌐 **Panel Giriş:** [Buraya Tıkla](https://muhittinuzun.github.io/FismatikMusteriPaneli/)\n\n⚠️ *Lütfen giriş yaptıktan sonra şifrenizi değiştiriniz.*\n\nHadi başlayalım, ilk fiş fotoğrafınızı bekliyoruz! 📸",
+                "additionalFields": {
+                    "appendAttribution": false
+                }
+            },
+            "type": "n8n-nodes-base.telegram",
+            "typeVersion": 1.2,
+            "position": [
+                -2928,
+                1136
+            ],
+            "id": "f2a41e8f-9991-4aa4-9c5a-06583e654311",
+            "name": "kayıt oldunuz tebrikler1",
+            "webhookId": "5533a31d-04ea-4fd4-ac91-783cf19c1612",
+            "credentials": {
+                "telegramApi": {
+                    "id": "CFzJKjsFQ3QPP0Vt",
+                    "name": "ITTFİSMATİKBOT"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "operation": "executeQuery",
+                "query": "=UPDATE users SET password_hash = crypt('{{ $('form verilerini temizle1').item.json.generated_password }}', gen_salt('bf')) WHERE email = '{{ $json.email }}' RETURNING *;",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.postgres",
+            "typeVersion": 2.5,
+            "position": [
+                -3376,
+                1232
+            ],
+            "id": "b88c10cb-07d1-48e8-925c-01598b7c6a9e",
+            "name": "user oluştur1",
+            "alwaysOutputData": false,
+            "credentials": {
+                "postgres": {
+                    "id": "c0xPSSHQBi5bwXF5",
+                    "name": "FİSmatik"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "chatId": "={{ $('fis gonder').item.json.message.chat.id }}",
+                "text": "={{ $('dosyayı getir1').item.json.dosya_adi }} Görseli aldım inceliyorum",
+                "additionalFields": {
+                    "appendAttribution": false
+                }
+            },
+            "type": "n8n-nodes-base.telegram",
+            "typeVersion": 1.2,
+            "position": [
+                592,
+                2864
+            ],
+            "id": "93210e7b-7cea-4053-9e66-29f6f2ffbeda",
+            "name": "gorseli_aldim1",
+            "webhookId": "83c06c89-2f24-4531-b34e-282ca6ed0161",
+            "credentials": {
+                "telegramApi": {
+                    "id": "CFzJKjsFQ3QPP0Vt",
+                    "name": "ITTFİSMATİKBOT"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "content": "## kullanıcı Onay",
+                "height": 336,
+                "width": 1664
+            },
+            "type": "n8n-nodes-base.stickyNote",
+            "position": [
+                -4160,
+                1072
+            ],
+            "typeVersion": 1,
+            "id": "5b9d06a3-8cf2-4136-aaa3-84755aa8c4ac",
+            "name": "Sticky Note7"
+        },
+        {
+            "parameters": {
+                "content": "## Tanımadığın kullanıcıyı kayıt formuna yönlendir",
+                "height": 464,
+                "width": 752
+            },
+            "type": "n8n-nodes-base.stickyNote",
+            "position": [
+                -2624,
+                1600
+            ],
+            "typeVersion": 1,
+            "id": "a1c03e17-d5dd-48e7-b877-a27f8bb6d3f2",
+            "name": "Sticky Note9"
+        },
+        {
+            "parameters": {
+                "content": "## Tanımadığın kullanıcıdan telefon iste",
+                "height": 336,
+                "width": 512
+            },
+            "type": "n8n-nodes-base.stickyNote",
+            "position": [
+                -2576,
+                3136
+            ],
+            "typeVersion": 1,
+            "id": "12e2e7d0-8b30-44b7-8bfb-460baf0485ba",
+            "name": "Sticky Note10"
+        },
+        {
+            "parameters": {
+                "content": "## Kullanıcı kayıtlı mı?",
+                "height": 320,
+                "width": 496
+            },
+            "type": "n8n-nodes-base.stickyNote",
+            "position": [
+                -3936,
+                2176
+            ],
+            "typeVersion": 1,
+            "id": "c191a488-09e5-49d4-a86f-6d2930f68f93",
+            "name": "Sticky Note11"
+        },
+        {
+            "parameters": {
+                "content": "## durumu hala aktif mi?",
+                "height": 512,
+                "width": 960
+            },
+            "type": "n8n-nodes-base.stickyNote",
+            "position": [
+                -2640,
+                2240
+            ],
+            "typeVersion": 1,
+            "id": "b6f0b5b7-10b6-4b5b-a61a-29ffd8532376",
+            "name": "Sticky Note12"
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "options": {
+                        "caseSensitive": true,
+                        "leftValue": "",
+                        "typeValidation": "strict",
+                        "version": 2
+                    },
+                    "conditions": [
+                        {
+                            "id": "9d579a92-7273-410e-9102-51a1af5f8ba5",
+                            "leftValue": "",
+                            "rightValue": "",
+                            "operator": {
+                                "type": "string",
+                                "operation": "equals",
+                                "name": "filter.operator.equals"
+                            }
+                        }
+                    ],
+                    "combinator": "and"
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2.2,
+            "position": [
+                -2384,
+                2400
+            ],
+            "id": "845909f5-0747-4488-bdbb-85c83ec4605c",
+            "name": "If3"
+        },
+        {
+            "parameters": {
+                "chatId": "={{ $('fis gonder').item.json.message.chat.id }}",
+                "text": "Üzgünüm. Şirketinizin kayıt süresi dolmuş görünüyor. Lütfen yetkililer ile görüşünüz. ",
+                "additionalFields": {
+                    "appendAttribution": true
+                }
+            },
+            "type": "n8n-nodes-base.telegram",
+            "typeVersion": 1.2,
+            "position": [
+                -2192,
+                2560
+            ],
+            "id": "7cab525a-1375-4cf7-91e4-8dfd5099b2a6",
+            "name": "yetki süresi dolmuş1",
+            "webhookId": "02a3a9b1-8553-4908-8bef-d16076871c01",
+            "credentials": {
+                "telegramApi": {
+                    "id": "CFzJKjsFQ3QPP0Vt",
+                    "name": "ITTFİSMATİKBOT"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "chatId": "={{ $('fis gonder').item.json.message.chat.id }}",
+                "text": "HATALI GÖNDERİ !!!  Bu bot sadece fiş görselleri göndermek ve rapor almak içindir.  fiş görseli dışında bir şey göndermeyiniz...",
+                "additionalFields": {
+                    "appendAttribution": false
+                }
+            },
+            "type": "n8n-nodes-base.telegram",
+            "typeVersion": 1.2,
+            "position": [
+                -1984,
+                2496
+            ],
+            "id": "8d66efc3-4ff0-42ab-8fdd-ab34455934a9",
+            "name": "sadece fiş görseli1",
+            "webhookId": "cb0dfa03-581c-4980-8183-6b661e308585",
+            "credentials": {
+                "telegramApi": {
+                    "id": "CFzJKjsFQ3QPP0Vt",
+                    "name": "ITTFİSMATİKBOT"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "content": "## telefon numarası kayıtlımı kontrol et",
+                "height": 304,
+                "width": 528
+            },
+            "type": "n8n-nodes-base.stickyNote",
+            "position": [
+                -3472,
+                1648
+            ],
+            "typeVersion": 1,
+            "id": "a85663d4-295b-4082-906b-1741d0248624",
+            "name": "Sticky Note13"
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "options": {
+                        "caseSensitive": true,
+                        "leftValue": "",
+                        "typeValidation": "strict",
+                        "version": 2
+                    },
+                    "conditions": [
+                        {
+                            "id": "12a05e69-e972-439b-bfd5-b10fef98ee2f",
+                            "leftValue": "={{ $('kullanıcı çek1').item.json.telegram_id }}",
+                            "rightValue": "",
+                            "operator": {
+                                "type": "string",
+                                "operation": "notEmpty",
+                                "singleValue": true
+                            }
+                        }
+                    ],
+                    "combinator": "and"
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2.2,
+            "position": [
+                -3152,
+                1232
+            ],
+            "id": "bb173c42-5bce-49e3-b8c0-d4b6025f62a3",
+            "name": "telegram id var mı?1"
+        },
+        {
+            "parameters": {
+                "sendTo": "={{ $('form verilerini temizle1').item.json.email }}",
+                "subject": "Fiş Fatura Kayıt Bildirimi",
+                "message": "=<div style=\"font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f9f9fa; padding: 40px 20px; color: #333;\">\n  <div style=\"max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); overflow: hidden;\">\n    <div style=\"background: linear-gradient(135deg, #4F46E5 0%, #3730A3 100%); padding: 30px; text-align: center;\">\n      <h1 style=\"color: #ffffff; margin: 0; font-size: 24px; letter-spacing: 1px; font-weight: 600;\">Fiş Fatura</h1>\n    </div>\n    <div style=\"padding: 40px 30px;\">\n      <h2 style=\"color: #1f2937; font-size: 22px; margin-top: 0; margin-bottom: 20px;\">Aramıza Hoş Geldiniz! 🎉</h2>\n      <p style=\"font-size: 16px; line-height: 1.6; color: #4b5563; margin-bottom: 15px;\">Merhaba Sayın <strong>{{ $('kullanıcı çek1').item.json.full_name }}</strong>,</p>\n      <p style=\"font-size: 16px; line-height: 1.6; color: #4b5563;\">Fiş Fatura hesabınız başarıyla oluşturulmuştur.</p>\n      <div style=\"background-color: #eff6ff; border-left: 4px solid #4F46E5; padding: 25px; margin: 30px 0; border-radius: 4px;\">\n        <h3 style=\"margin-top: 0; margin-bottom: 15px; color: #3730A3; font-size: 16px;\">Giriş Bilgileriniz</h3>\n        <div style=\"margin-bottom: 15px;\"><p style=\"margin: 0; color: #6b7280; font-size: 12px; text-transform: uppercase;\">E-Posta</p><p style=\"margin: 4px 0 0 0; color: #1f2937; font-size: 16px; font-weight: 600;\">{{ $json.email }}</p></div>\n        <div><p style=\"margin: 0; color: #6b7280; font-size: 12px; text-transform: uppercase;\">Şifreniz</p><p style=\"margin: 4px 0 0 0; color: #4F46E5; font-size: 20px; font-weight: 700; font-family: 'Courier New', monospace;\">{{ $('form verilerini temizle1').item.json.generated_password }}</p></div>\n      </div>\n      <div style=\"background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 20px; margin-bottom: 30px; text-align: center;\">\n        <h3 style=\"margin: 0 0 10px 0; color: #15803d; font-size: 18px;\">📱 Fiş Göndermeye Başlayın</h3>\n        <p style=\"margin: 0 0 15px 0; font-size: 14px; color: #166534;\">Fiş fotoğraflarınızı Telegram botumuza göndererek sisteme anında işleyebilirsiniz.</p>\n        <a href=\"https://t.me/ITT_Fis_matik_BOT\" target=\"_blank\" style=\"display: inline-flex; align-items: center; gap: 8px; background-color: #22c55e; color: #ffffff; text-decoration: none; padding: 10px 20px; border-radius: 6px; font-weight: 600; font-size: 14px;\">Telegram Botunu Başlat</a>\n      </div>\n      <div style=\"text-align: center; margin: 35px 0;\"><a href=\"https://muhittinuzun.github.io/FismatikMusteriPaneli/\" style=\"background-color: #4F46E5; color: #ffffff; text-decoration: none; padding: 14px 35px; border-radius: 8px; font-weight: 600; display: inline-block;\">Panele Giriş Yap</a></div>\n      <p style=\"font-size: 14px; color: #6b7280; margin-top: 30px; border-top: 1px solid #e5e7eb; padding-top: 20px;\"><strong>Not:</strong> Güvenliğiniz için giriş yaptıktan sonra şifrenizi değiştirmenizi öneririz.</p>\n    </div>\n    <div style=\"background-color: #f3f4f6; padding: 20px; text-align: center;\"><p style=\"margin: 0; font-size: 12px; color: #9ca3af;\">© 2025 Fiş Fatura. Tüm hakları saklıdır.</p></div>\n  </div>\n</div>",
+                "options": {
+                    "appendAttribution": false,
+                    "senderName": "Fiş Fatura Destek"
+                }
+            },
+            "type": "n8n-nodes-base.gmail",
+            "typeVersion": 2.1,
+            "position": [
+                -2704,
+                1232
+            ],
+            "id": "73b8803b-3339-4d82-bda5-f6b5b5ff4dcf",
+            "name": "şifre gönder1",
+            "webhookId": "478458a2-c6dd-4309-ae08-9bcd1922ab29",
+            "credentials": {
+                "gmailOAuth2": {
+                    "id": "EUn4cdeYkQUXRdxL",
+                    "name": "fis takip"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "operation": "executeQuery",
+                "query": "=SELECT * FROM users WHERE company_id = '{{ $json.id }}' LIMIT 1;",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.postgres",
+            "typeVersion": 2.5,
+            "position": [
+                -3600,
+                1232
+            ],
+            "id": "0cc4b142-9401-4ef1-87f3-e33d15f2f130",
+            "name": "kullanıcı çek1",
+            "credentials": {
+                "postgres": {
+                    "id": "c0xPSSHQBi5bwXF5",
+                    "name": "FİSmatik"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "jsCode": "const data = $input.first().json.callback_query.data;\nconst parts = data.split('_');\n\n// Callback mesajının text'inden email'i çıkar\nconst messageText = $input.first().json.callback_query.message.text || '';\nconst emailMatch = messageText.match(/Mail:\\s*(\\S+@\\S+)/i);\nconst email = emailMatch ? emailMatch[1] : '';\n\n// Rastgele Güçlü Şifre Üretimi\nconst randomString = Math.random().toString(36).slice(-8);\nconst finalPassword = randomString + 'Aa1!';\n\nreturn {\n  json: {\n    action: parts[0],\n    company_id: parts[1],\n    admin_chat_id: parts[2],\n    email: email,\n    generated_password: finalPassword\n  }\n};"
+            },
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                -4048,
+                1232
+            ],
+            "id": "85884b4d-e670-41bd-88db-6b000f8f045a",
+            "name": "form verilerini temizle1"
+        },
+        {
+            "parameters": {
+                "jsCode": "// 1. KATEGORİLERİ AL (PostgreSQL 'Kategorileri Getir' Düğümü)\nlet dbCategories = [];\n\ntry {\n    let items = $input.all();\n    if (!items.length || !items[0].json.name) {\n        try {\n            items = $('Kategorileri Getir1').all();\n        } catch(e) {}\n    }\n    if (items && items.length > 0) {\n        dbCategories = items\n            .map(item => item.json?.name)\n            .filter(Boolean);\n    }\n} catch (e) {\n    console.log(\"Kategori alma hatası (Varsayılanlar kullanılacak):\", e);\n}\n\nconst defaultCategories = [\n  \"Yemek\", \"Market\", \"Yakıt\", \"Ulaşım\", \"Konaklama\",\n  \"Giyim\", \"Kırtasiye\", \"Teknoloji\", \"Temizlik\",\n  \"Temsil ve Ağırlama\", \"Diğer\"\n];\n\nconst activeCategories = dbCategories.length > 0 ? dbCategories : defaultCategories;\nconst categoryListString = JSON.stringify(activeCategories);\n\n// 2. VERİLERİ TOPLA\nlet userNote = \"\";\nlet ocrText = \"\"; \nlet originalData = {};\n\ntry {\n    let triggerNode;\n    try { triggerNode = $('fis gonder').first(); } catch(e) {}\n    if (!triggerNode) { try { triggerNode = $('Telegram Trigger').first(); } catch(e) {} }\n    if (!triggerNode) { try { triggerNode = $('Webhook').first(); } catch(e) {} }\n    \n    if (triggerNode) {\n        userNote = triggerNode.json.message?.caption || \n                   triggerNode.json.body?.caption || \n                   \"\";\n        originalData = triggerNode.json;\n    }\n\n    try {\n        const ocrNode = $('Gemini OCR').first();\n        if (ocrNode.json.responses && ocrNode.json.responses[0]?.textAnnotations?.[0]?.description) {\n            ocrText = ocrNode.json.responses[0].textAnnotations[0].description;\n        }\n        else if (ocrNode.json.description) { ocrText = ocrNode.json.description; }\n        else if (ocrNode.json.text) { ocrText = ocrNode.json.text; }\n        if (!ocrText) ocrText = $input.first().json.description || \"\";\n    } catch(e) {\n        console.log(\"OCR verisi alınamadı, input kontrol ediliyor...\");\n        ocrText = $input.first().json.description || \"\";\n    }\n} catch (e) {\n    console.log(\"Veri toplama hatası:\", e);\n}\n\nconst userNoteRule = userNote \n    ? `*** ÖZEL KULLANICI NOTU: Kullanıcı bu fiş için \"${userNote}\" notunu düştü. Eğer fiş genel bir harcamaysa bu notu kullan. Ancak satır bazında ürünler ayrışıyorsa, ürün isimlerine göre kategorilendir.` \n    : \"\";\n\nconst systemPrompt = `Sen, Türkiye'deki perakende satış fişlerinden veri çıkaran uzman bir muhasebe asistanısın.\n\nGÖREVİN:\nSana \"User Message\" olarak verilecek olan OCR metnini analiz et ve YALNIZCA aşağıdaki JSON şemasına birebir uyan geçerli bir JSON nesnesi üret.\n\n*** KRİTİK STRATEJİ (SATIR BAZLI AYRIŞTIRMA) ***\n1. İşletme Adına Bak: Mağazanın genel konseptini anla (Örn: Migros -> Market, Shell -> Yakıt).\n2. ÜRÜNLERİ TEK TEK İNCELE: Fişin geneline tek bir kategori atama! Her satırı ürün ismine göre analiz et.\n3. EĞER ÜRÜN İSMİ ANLAŞILMIYORSA: O zaman İşletme Adı'nın kategorisini kullan.\n\nKULLANILACAK KATEGORİ LİSTESİ (Sadece bunlardan birini seç):\n${categoryListString}\n\nKURALLAR:\n1. ${userNoteRule}\n2. ASLA VERİ UYDURMA: Sadece OCR metnini kullan.\n3. SADECE JSON ÇIKTI VER.\n4. MATRAH HESABI: (KDV Dahil Tutar / (1 + (KDV Oranı/100))).\n5. ÖDEME TİPİ BELİRLEME: Eğer fişte kart numarasının son 4 hanesi tespit edilebiliyorsa KartSon4Hane alanını doldur ve OdemeTipi \"Kredi Kartı\" yaz. Eğer fişte kart bilgisi yoksa KartSon4Hane alanını null bırak ve OdemeTipi \"Nakit\" yaz.\n\nJSON ŞEMASI:\n{\n  \"type\": \"object\",\n  \"properties\": {\n    \"IsletmeAdi\": { \"type\": \"string\" },\n    \"Tarih\": { \"type\": \"string\", \"description\": \"YYYY-MM-DD\" },\n    \"Saat\": { \"type\": \"string\", \"description\": \"HH:MM\" },\n    \"FisNumarasi\": { \"type\": \"string\" },\n    \"OdemeTipi\": { \"type\": \"string\", \"enum\": [\"Nakit\", \"Kredi Kartı\", \"Diğer\"] },\n    \"KartSon4Hane\": { \"type\": \"string\" },\n    \"ToplamTutar\": { \"type\": \"number\" },\n    \"UrunlerVeKDVBilgileri\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"UrunTuru\": { \"type\": \"string\" },\n          \"Kategori\": { \"type\": \"string\" },\n          \"KDVOrani\": { \"type\": \"integer\" },\n          \"Matrah\": { \"type\": \"number\" },\n          \"KDVTutari\": { \"type\": \"number\" },\n          \"Tutar_KDVDahil\": { \"type\": \"number\" }\n        },\n        \"required\": [\"UrunTuru\", \"Kategori\", \"KDVOrani\", \"Matrah\", \"KDVTutari\", \"Tutar_KDVDahil\"]\n      }\n    }\n  },\n  \"required\": [\"IsletmeAdi\", \"Tarih\", \"ToplamTutar\", \"UrunlerVeKDVBilgileri\", \"OdemeTipi\"]\n}`;\n\nconst userPrompt = `İşte analiz etmen gereken OCR ham metni:\\n\\n\"\"\"\\n${ocrText}\\n\"\"\"`;\n\nreturn {\n    json: {\n        system_prompt: systemPrompt,\n        user_prompt: userPrompt,\n        ...originalData\n    }\n};"
+            },
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                0,
+                2304
+            ],
+            "id": "c623c600-6d9f-4096-951c-6d5573be0662",
+            "name": "kategorileri ayarla1"
+        },
+        {
+            "parameters": {
+                "operation": "executeQuery",
+                "query": "=SELECT * FROM categories WHERE company_id = '{{ $('PostgreSQL (Kimlik Kontrol)').item.json.company_id }}';",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.postgres",
+            "typeVersion": 2.5,
+            "position": [
+                -224,
+                2304
+            ],
+            "id": "4058cb51-125a-489b-867c-036541839b7d",
+            "name": "Kategorileri Getir1",
+            "alwaysOutputData": true,
+            "credentials": {
+                "postgres": {
+                    "id": "c0xPSSHQBi5bwXF5",
+                    "name": "FİSmatik"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "operation": "upload",
+                "bucketName": "cdn.fisfatura.com",
+                "fileName": "={{ $('PostgreSQL Şirket Kontrol').item.json.id }}/{{ $('PostgreSQL Şirket Kontrol').item.json.company_name }}/fisler/{{ $now.format('yyyy/MM') }}/{{ $json.dosya_adi }}",
+                "additionalFields": {}
+            },
+            "type": "n8n-nodes-base.awsS3",
+            "typeVersion": 2,
+            "position": [
+                304,
+                2864
+            ],
+            "id": "0a4f10c6-53d7-4a82-a207-3a54e4210931",
+            "name": "Upload a file",
+            "credentials": {
+                "aws": {
+                    "id": "N8W9Eg6vOryjKoZM",
+                    "name": "S3 ITT"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "mode": "combine",
+                "combineBy": "combineAll",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.merge",
+            "typeVersion": 3.2,
+            "position": [
+                1136,
+                2672
+            ],
+            "id": "4bd53517-d6b5-4d8f-8873-da37285c138b",
+            "name": "Merge"
+        },
+        {
+            "parameters": {
+                "schema": {
+                    "__rl": true,
+                    "value": "public",
+                    "mode": "list",
+                    "cachedResultName": "public"
+                },
+                "table": {
+                    "__rl": true,
+                    "value": "fisler",
+                    "mode": "list",
+                    "cachedResultName": "fisler"
+                },
+                "columns": {
+                    "mappingMode": "defineBelow",
+                    "value": {
+                        "company_id": "={{ $json.company_id }}",
+                        "toplam_tutar": "={{ $json.toplam_tutar }}",
+                        "user_id": "={{ $json.user_id }}",
+                        "isletme_adi": "={{ $json.isletme_adi }}",
+                        "tarih": "={{ $json.tarih }}",
+                        "saat": "={{ $json.saat }}",
+                        "fis_no": "={{ $json.fis_no }}",
+                        "para_birimi": "={{ $json.para_birimi }}",
+                        "kart_son_4": "={{ $json.kart_son_4 }}",
+                        "kategori": "={{ $json.kategori }}",
+                        "ocr_detaylari": "={{ $json.ocr_detaylari }}",
+                        "gorsel_url": "={{ $('Upload a file').first().json.Location }}",
+                        "durum": "={{ $json.durum }}",
+                        "odeme_tipi": "={{ $json.odeme_tipi }}"
+                    },
+                    "matchingColumns": [
+                        "id"
+                    ],
+                    "schema": [
+                        {
+                            "id": "id",
+                            "displayName": "id",
+                            "required": false,
+                            "defaultMatch": true,
+                            "display": true,
+                            "type": "number",
+                            "canBeUsedToMatch": true,
+                            "removed": true
+                        },
+                        {
+                            "id": "company_id",
+                            "displayName": "company_id",
+                            "required": false,
+                            "defaultMatch": false,
+                            "display": true,
+                            "type": "number",
+                            "canBeUsedToMatch": true
+                        },
+                        {
+                            "id": "user_id",
+                            "displayName": "user_id",
+                            "required": false,
+                            "defaultMatch": false,
+                            "display": true,
+                            "type": "string",
+                            "canBeUsedToMatch": true
+                        },
+                        {
+                            "id": "isletme_adi",
+                            "displayName": "isletme_adi",
+                            "required": false,
+                            "defaultMatch": false,
+                            "display": true,
+                            "type": "string",
+                            "canBeUsedToMatch": true
+                        },
+                        {
+                            "id": "tarih",
+                            "displayName": "tarih",
+                            "required": false,
+                            "defaultMatch": false,
+                            "display": true,
+                            "type": "dateTime",
+                            "canBeUsedToMatch": true
+                        },
+                        {
+                            "id": "saat",
+                            "displayName": "saat",
+                            "required": false,
+                            "defaultMatch": false,
+                            "display": true,
+                            "type": "time",
+                            "canBeUsedToMatch": true
+                        },
+                        {
+                            "id": "fis_no",
+                            "displayName": "fis_no",
+                            "required": false,
+                            "defaultMatch": false,
+                            "display": true,
+                            "type": "string",
+                            "canBeUsedToMatch": true
+                        },
+                        {
+                            "id": "toplam_tutar",
+                            "displayName": "toplam_tutar",
+                            "required": false,
+                            "defaultMatch": false,
+                            "display": true,
+                            "type": "number",
+                            "canBeUsedToMatch": true
+                        },
+                        {
+                            "id": "para_birimi",
+                            "displayName": "para_birimi",
+                            "required": false,
+                            "defaultMatch": false,
+                            "display": true,
+                            "type": "string",
+                            "canBeUsedToMatch": true
+                        },
+                        {
+                            "id": "kart_son_4",
+                            "displayName": "kart_son_4",
+                            "required": false,
+                            "defaultMatch": false,
+                            "display": true,
+                            "type": "string",
+                            "canBeUsedToMatch": true
+                        },
+                        {
+                            "id": "odeme_tipi",
+                            "displayName": "odeme_tipi",
+                            "required": false,
+                            "defaultMatch": false,
+                            "display": true,
+                            "type": "string",
+                            "canBeUsedToMatch": true
+                        },
+                        {
+                            "id": "kategori",
+                            "displayName": "kategori",
+                            "required": false,
+                            "defaultMatch": false,
+                            "display": true,
+                            "type": "string",
+                            "canBeUsedToMatch": true
+                        },
+                        {
+                            "id": "proje",
+                            "displayName": "proje",
+                            "required": false,
+                            "defaultMatch": false,
+                            "display": true,
+                            "type": "string",
+                            "canBeUsedToMatch": true,
+                            "removed": true
+                        },
+                        {
+                            "id": "gorsel_url",
+                            "displayName": "gorsel_url",
+                            "required": false,
+                            "defaultMatch": false,
+                            "display": true,
+                            "type": "string",
+                            "canBeUsedToMatch": true
+                        },
+                        {
+                            "id": "ocr_detaylari",
+                            "displayName": "ocr_detaylari",
+                            "required": false,
+                            "defaultMatch": false,
+                            "display": true,
+                            "type": "object",
+                            "canBeUsedToMatch": true
+                        },
+                        {
+                            "id": "durum",
+                            "displayName": "durum",
+                            "required": false,
+                            "defaultMatch": false,
+                            "display": true,
+                            "type": "string",
+                            "canBeUsedToMatch": true
+                        },
+                        {
+                            "id": "created_at",
+                            "displayName": "created_at",
+                            "required": false,
+                            "defaultMatch": false,
+                            "display": true,
+                            "type": "dateTime",
+                            "canBeUsedToMatch": true,
+                            "removed": true
+                        }
+                    ],
+                    "attemptToConvertTypes": false,
+                    "convertFieldsToString": false
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.postgres",
+            "typeVersion": 2.6,
+            "position": [
+                1360,
+                2672
+            ],
+            "id": "7157a81f-f00c-4c21-b414-5278e6f3c923",
+            "name": "Insert rows in a table",
+            "credentials": {
+                "postgres": {
+                    "id": "c0xPSSHQBi5bwXF5",
+                    "name": "FİSmatik"
+                }
+            }
+        }
+    ],
+    "connections": {
+        "fis gonder": {
+            "main": [
+                [
+                    {
+                        "node": "If2",
+                        "type": "main",
+                        "index": 0
+                    },
+                    {
+                        "node": "dosyayı getir1",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "PostgreSQL (ID Güncelle)": {
+            "main": [
+                [
+                    {
+                        "node": "Başarılı Mesajı1",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "PostgreSQL (Kimlik Kontrol)": {
+            "main": [
+                [
+                    {
+                        "node": "Yetkili mi?1",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "PostgreSQL Telefon Kontrol": {
+            "main": [
+                [
+                    {
+                        "node": "Kullanıcı Bulundu mu?1",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "PostgreSQL Şirket Kontrol": {
+            "main": [
+                [
+                    {
+                        "node": "If3",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "PostgreSQL Şirketi Aktif Et": {
+            "main": [
+                [
+                    {
+                        "node": "kullanıcı çek1",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Gemini OCR": {
+            "main": [
+                [
+                    {
+                        "node": "Fiş mi değil mi?1",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Extract from File1": {
+            "main": [
+                [
+                    {
+                        "node": "Gemini OCR",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Code in JavaScript1": {
+            "main": [
+                [
+                    {
+                        "node": "Extract from File1",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Message a model1": {
+            "main": [
+                [
+                    {
+                        "node": "Code in JavaScript6",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Code in JavaScript6": {
+            "main": [
+                [
+                    {
+                        "node": "Merge",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Fiş mi değil mi?1": {
+            "main": [
+                [
+                    {
+                        "node": "Fiş mi Kontrol IF1",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Fiş mi Kontrol IF1": {
+            "main": [
+                [
+                    {
+                        "node": "Kategorileri Getir1",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Fiş Değil Uyarısı1",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Trafik Kontrolü1": {
+            "main": [
+                [
+                    {
+                        "node": "PostgreSQL Telefon Kontrol",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "PostgreSQL (Kimlik Kontrol)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Kullanıcı Bulundu mu?1": {
+            "main": [
+                [
+                    {
+                        "node": "PostgreSQL (ID Güncelle)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Hata Mesajı1",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Yetkili mi?1": {
+            "main": [
+                [
+                    {
+                        "node": "PostgreSQL Şirket Kontrol",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Giriş İste1",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "başlayalım1": {
+            "main": [
+                [
+                    {
+                        "node": "Dosya Adi Hazirla1",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "sadece fiş görseli1",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "If2": {
+            "main": [
+                [
+                    {
+                        "node": "form verilerini temizle1",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Trafik Kontrolü1",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Dosya Adi Hazirla1": {
+            "main": [
+                [
+                    {
+                        "node": "dosyayı getir1",
+                        "type": "main",
+                        "index": 1
+                    }
+                ]
+            ]
+        },
+        "dosyayı getir1": {
+            "main": [
+                [
+                    {
+                        "node": "Code in JavaScript1",
+                        "type": "main",
+                        "index": 0
+                    },
+                    {
+                        "node": "Upload a file",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "kayıt oldunuz tebrikler1": {
+            "main": [
+                [
+                    {
+                        "node": "şifre gönder1",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "user oluştur1": {
+            "main": [
+                [
+                    {
+                        "node": "telegram id var mı?1",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "gorseli_aldim1": {
+            "main": [
+                [
+                    {
+                        "node": "Merge",
+                        "type": "main",
+                        "index": 1
+                    }
+                ]
+            ]
+        },
+        "If3": {
+            "main": [
+                [
+                    {
+                        "node": "başlayalım1",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "yetki süresi dolmuş1",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "telegram id var mı?1": {
+            "main": [
+                [
+                    {
+                        "node": "kayıt oldunuz tebrikler1",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "şifre gönder1",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "kullanıcı çek1": {
+            "main": [
+                [
+                    {
+                        "node": "user oluştur1",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "form verilerini temizle1": {
+            "main": [
+                [
+                    {
+                        "node": "PostgreSQL Şirketi Aktif Et",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "kategorileri ayarla1": {
+            "main": [
+                [
+                    {
+                        "node": "Message a model1",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Kategorileri Getir1": {
+            "main": [
+                [
+                    {
+                        "node": "kategorileri ayarla1",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Upload a file": {
+            "main": [
+                [
+                    {
+                        "node": "gorseli_aldim1",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Merge": {
+            "main": [
+                [
+                    {
+                        "node": "Insert rows in a table",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Insert rows in a table": {
+            "main": [
+                [
+                    {
+                        "node": "Onay Mesajı Gönder",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "pinData": {},
+    "meta": {
+        "templateCredsSetupCompleted": true,
+        "instanceId": "6f076ed0cacd38fc2ba8ffa68ee2e157985f657f98d37b30667e4135afe7d023"
+    }
+}
