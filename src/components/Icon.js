@@ -24,18 +24,9 @@ function resolveLucideIcon(name) {
 
 function Icon({ name, size = 16, className = "", strokeWidth = 2 }) {
   const iconNode = React.useMemo(() => resolveLucideIcon(name), [name]);
+  const nodeDef = iconNode?.iconNode;
 
-  const svgMarkup = React.useMemo(() => {
-    if (!iconNode?.toSvg) return "";
-    return iconNode.toSvg({
-      width: size,
-      height: size,
-      class: className,
-      "stroke-width": strokeWidth,
-    });
-  }, [iconNode, size, className, strokeWidth]);
-
-  if (!svgMarkup) {
+  if (!Array.isArray(nodeDef)) {
     return (
       <span
         className={className}
@@ -46,11 +37,23 @@ function Icon({ name, size = 16, className = "", strokeWidth = 2 }) {
   }
 
   return (
-    <span
-      className="inline-flex items-center justify-center"
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
       aria-hidden="true"
-      dangerouslySetInnerHTML={{ __html: svgMarkup }}
-    />
+    >
+      {nodeDef.map(([tag, attrs], index) =>
+        React.createElement(tag, { ...(attrs || {}), key: index })
+      )}
+    </svg>
   );
 }
 

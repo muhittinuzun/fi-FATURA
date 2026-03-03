@@ -71,50 +71,8 @@
   <script type="text/babel" src="./src/main.js"></script>
 
   <script>
-    (function initSafeLucideRefresh() {
-      var refreshQueued = false;
-      var refreshLocked = false;
-
-      function runCreateIcons() {
-        if (!window.lucide || typeof window.lucide.createIcons !== "function") {
-          return;
-        }
-
-        if (refreshLocked) {
-          refreshQueued = true;
-          return;
-        }
-
-        refreshLocked = true;
-        try {
-          window.lucide.createIcons();
-        } catch (err) {
-          if (err && err.name !== "NotFoundError") {
-            console.warn("Lucide createIcons hatasi:", err);
-          }
-        } finally {
-          refreshLocked = false;
-          if (refreshQueued) {
-            refreshQueued = false;
-            requestAnimationFrame(runCreateIcons);
-          }
-        }
-      }
-
-      window.refreshIcons = function refreshIcons() {
-        if (typeof requestAnimationFrame === "function") {
-          requestAnimationFrame(runCreateIcons);
-        } else {
-          setTimeout(runCreateIcons, 0);
-        }
-      };
-
-      if (document.readyState === "loading") {
-        document.addEventListener("DOMContentLoaded", window.refreshIcons, { once: true });
-      } else {
-        window.refreshIcons();
-      }
-    })();
+    // Backward compatibility: eski kodlar cagirse bile DOM mutasyonu yapma.
+    window.refreshIcons = function refreshIcons() {};
   </script>
 </body>
 </html>
