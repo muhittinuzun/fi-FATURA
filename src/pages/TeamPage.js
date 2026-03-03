@@ -43,7 +43,7 @@ function TeamPage({ profile, user }) {
     if (!newUser.email || !newUser.full_name || !newUser.password) return;
     setError("");
     try {
-      await window.addUser({ ...newUser, company_id: profile?.company_id || null });
+      await window.addUser(newUser);
       setShowModal(false);
       setNewUser({ email: "", full_name: "", password: "", role: "user", phone: "" });
       setTimeout(loadTeam, 1000);

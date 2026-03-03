@@ -50,6 +50,7 @@ function MetadataManager({ table, title, icon, companyId }) {
       if (table === "company_cards" && loaded.length > 0 && normalized.length === 0) {
         setError("company_cards verisi beklenen formatta donmuyor.");
       }
+      return normalized.length;
     } finally {
       setLoading(false);
     }
@@ -66,9 +67,13 @@ function MetadataManager({ table, title, icon, companyId }) {
       : { name: newValue };
     setError("");
     try {
+      const beforeCount = items.length;
       await window.addMetadata(table, payload);
       setNewValue("");
-      await load();
+      const afterCount = await load();
+      if (afterCount <= beforeCount) {
+        setError("Kayit eklendi yaniti alindi ancak listede degisiklik yok. Gateway operation kontrol edilmeli.");
+      }
     } catch (err) {
       setError(err.message || "Ekleme islemi basarisiz.");
     }
@@ -78,8 +83,12 @@ function MetadataManager({ table, title, icon, companyId }) {
     if (!confirm("Silmek istediğinize emin misiniz?")) return;
     setError("");
     try {
+      const beforeCount = items.length;
       await window.deleteMetadata(table, id);
-      await load();
+      const afterCount = await load();
+      if (afterCount >= beforeCount) {
+        setError("Silme yaniti alindi ancak kayit listede duruyor. Gateway operation kontrol edilmeli.");
+      }
     } catch (err) {
       setError(err.message || "Silme islemi basarisiz.");
     }

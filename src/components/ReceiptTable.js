@@ -55,9 +55,17 @@ function ReceiptTable({ receipts = [], loading = false, simple = false, profile 
       return { aciklama: String(line), kategori: "", kdv: "", tutar: "" };
     }
 
+    const fold = (text) =>
+      String(text || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase();
     const keys = Object.keys(line);
     const pickByIncludes = (candidates) => {
-      const key = keys.find((k) => candidates.some((token) => k.toLowerCase().includes(token)));
+      const key = keys.find((k) => {
+        const folded = fold(k);
+        return candidates.some((token) => folded.includes(token));
+      });
       return key ? line[key] : undefined;
     };
 
