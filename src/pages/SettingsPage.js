@@ -2,9 +2,7 @@ function MetadataManager({ table, title, icon, companyId }) {
   const [items, setItems] = React.useState([]);
   const [newValue, setNewValue] = React.useState("");
   const [loading, setLoading] = React.useState(false);
-  const [resolvedTable, setResolvedTable] = React.useState(table);
-
-  const parseItems = (data, keyHint) => {
+  const parseItems = (data) => {
     if (Array.isArray(data)) return data;
     if (Array.isArray(data?.items)) return data.items;
     if (Array.isArray(data?.data)) return data.data;
@@ -12,18 +10,10 @@ function MetadataManager({ table, title, icon, companyId }) {
     if (Array.isArray(data?.result)) return data.result;
     if (Array.isArray(data?.result?.items)) return data.result.items;
     if (Array.isArray(data?.result?.data)) return data.result.data;
-    if (keyHint && Array.isArray(data?.[keyHint])) return data[keyHint];
-    if (keyHint && Array.isArray(data?.result?.[keyHint])) return data.result[keyHint];
+    if (Array.isArray(data?.[table])) return data[table];
+    if (Array.isArray(data?.result?.[table])) return data.result[table];
     return [];
   };
-
-  const normalizedTableHints = React.useMemo(() => {
-    const hints = [table];
-    if (table === "categories") hints.push("category");
-    if (table === "projects") hints.push("project");
-    if (table === "company_cards") hints.push("company_card");
-    return hints;
-  }, [table]);
 
   const normalizeItem = (item) => {
     if (!item || typeof item !== "object") return { id: item, name: String(item ?? "") };
@@ -37,17 +27,8 @@ function MetadataManager({ table, title, icon, companyId }) {
   const load = async () => {
     setLoading(true);
     try {
-      let loaded = [];
-      let matchedTable = table;
-      for (const hint of normalizedTableHints) {
-        const data = await window.fetchMetadata(hint);
-        loaded = parseItems(data, hint);
-        if (loaded.length > 0) {
-          matchedTable = hint;
-          break;
-        }
-      }
-      setResolvedTable(matchedTable);
+      const data = await window.fetchMetadata(table);
+      const loaded = parseItems(data);
       setItems(loaded.map(normalizeItem));
     } finally {
       setLoading(false);
@@ -60,18 +41,17 @@ function MetadataManager({ table, title, icon, companyId }) {
 
   const add = async () => {
     if (!newValue) return;
-    const targetTable = resolvedTable || normalizedTableHints[0];
-    const payload = targetTable === "company_cards"
+    const payload = table === "company_cards"
       ? { last_4_digits: newValue, bank_name: "Kredi Kartı", card_alias: `Kart ${newValue}` }
       : { name: newValue };
-    await window.addMetadata(targetTable, payload);
+    await window.addMetadata(table, payload);
     setNewValue("");
     load();
   };
 
   const remove = async (id) => {
     if (!confirm("Silmek istediğinize emin misiniz?")) return;
-    await window.deleteMetadata(resolvedTable || normalizedTableHints[0], id);
+    await window.deleteMetadata(table, id);
     load();
   };
 
@@ -124,6 +104,8 @@ function MetadataManager({ table, title, icon, companyId }) {
 function SettingsPage({ profile }) {
   const [geminiKey, setGeminiKey] = React.useState(localStorage.getItem("fisfatura_gemini_key") || "");
   const [saved, setSaved] = React.useState(false);
+  const profileName = profile?.full_name || profile?.name || profile?.user_name || "-";
+  const profileEmail = profile?.email || profile?.user_email || profile?.username || "-";
 
   const saveGeminiKey = () => {
     localStorage.setItem("fisfatura_gemini_key", geminiKey);
@@ -136,8 +118,8 @@ function SettingsPage({ profile }) {
       <section className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
         <h3 className="font-semibold mb-3">Profil Bilgileri</h3>
         <div className="grid md:grid-cols-3 gap-3 text-sm">
-          <div className="bg-slate-50 rounded-lg p-3"><p className="text-xs text-slate-500">Ad Soyad</p><p className="font-medium">{profile?.full_name || "-"}</p></div>
-          <div className="bg-slate-50 rounded-lg p-3"><p className="text-xs text-slate-500">E-Posta</p><p className="font-medium">{profile?.email || "-"}</p></div>
+          <div className="bg-slate-50 rounded-lg p-3"><p className="text-xs text-slate-500">Ad Soyad</p><p className="font-medium">{profileName}</p></div>
+          <div className="bg-slate-50 rounded-lg p-3"><p className="text-xs text-slate-500">E-Posta</p><p className="font-medium">{profileEmail}</p></div>
           <div className="bg-slate-50 rounded-lg p-3"><p className="text-xs text-slate-500">Yetki Seviyesi</p><p className="font-medium">{profile?.role === "admin" ? "Yönetici" : "Personel"}</p></div>
         </div>
       </section>

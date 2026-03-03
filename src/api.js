@@ -96,10 +96,45 @@ const deleteUser = async (userId) => gatewayRequest("delete_user", { user_id: us
 const fetchMetadata = async (table) => gatewayRequest("manage_metadata", { table, operation: "list" });
 
 // TODO: Backend'de "manage_metadata" action'ını implemente et
-const addMetadata = async (table, data) => gatewayRequest("manage_metadata", { table, operation: "insert", data });
+const addMetadata = async (table, data) => {
+  const attempts = [
+    { table, operation: "insert", data },
+    { table, operation: "add", data },
+    { table, operation: "create", data },
+    { table, operation: "insert", item: data },
+    { table, operation: "add", item: data }
+  ];
+  let lastError = null;
+  for (const payload of attempts) {
+    try {
+      return await gatewayRequest("manage_metadata", payload);
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  throw lastError || new Error("Metadata ekleme islemi basarisiz.");
+};
 
 // TODO: Backend'de "manage_metadata" action'ını implemente et
-const deleteMetadata = async (table, id) => gatewayRequest("manage_metadata", { table, operation: "delete", id });
+const deleteMetadata = async (table, id) => {
+  const attempts = [
+    { table, operation: "delete", id },
+    { table, operation: "delete", metadata_id: id },
+    { table, operation: "delete", item_id: id },
+    { table, operation: "remove", id },
+    { table, operation: "remove", metadata_id: id },
+    { table, operation: "remove", item_id: id }
+  ];
+  let lastError = null;
+  for (const payload of attempts) {
+    try {
+      return await gatewayRequest("manage_metadata", payload);
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  throw lastError || new Error("Metadata silme islemi basarisiz.");
+};
 
 // TODO: Backend'de "update_receipt" action'ını implemente et
 const updateReceiptStatus = async (receiptId, newStatus) =>

@@ -44,6 +44,29 @@ function ReceiptTable({ receipts = [], loading = false, simple = false, profile 
     return [];
   };
 
+  const normalizeOcrLine = (line) => {
+    if (!line || typeof line !== "object") {
+      return { aciklama: "", kategori: "", kdv: "", tutar: "" };
+    }
+    const aciklama = line.aciklama || line.description || line.urun || line.ad || "";
+    const kategori = line.kategori || line.category || "";
+    const kdv =
+      line.kdv ??
+      line.kdv_oran ??
+      line.vat_rate ??
+      line.kdvRate ??
+      line.kdvOran ??
+      "";
+    const tutar =
+      line.tutar ??
+      line.toplam_tutar ??
+      line.amount ??
+      line.total ??
+      line.kalem_tutar ??
+      "";
+    return { aciklama, kategori, kdv, tutar };
+  };
+
   const getMetaList = (raw, keyHint) => {
     if (Array.isArray(raw)) return raw;
     if (Array.isArray(raw?.data)) return raw.data;
@@ -91,12 +114,15 @@ function ReceiptTable({ receipts = [], loading = false, simple = false, profile 
   }, [receipts, filters]);
 
   const openEditModal = (item) => {
-    const ocrLines = parseOcrDetails(item.ocr_detaylari).map((line) => ({
-      aciklama: line.aciklama || "",
-      kategori: line.kategori || "",
-      kdv: line.kdv ?? "",
-      tutar: line.tutar ?? ""
-    }));
+    let ocrLines = parseOcrDetails(item.ocr_detaylari).map(normalizeOcrLine);
+    if (ocrLines.length === 0) {
+      ocrLines = [{
+        aciklama: item.isletme_adi || "",
+        kategori: item.kategori || "",
+        kdv: "",
+        tutar: item.toplam_tutar ?? ""
+      }];
+    }
     setEditItem({
       ...item,
       proje: item.proje || "",

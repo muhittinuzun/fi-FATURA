@@ -26,6 +26,19 @@ function App() {
   const [forgotMessage, setForgotMessage] = React.useState("");
   const [forgotLoading, setForgotLoading] = React.useState(false);
   const [sessionKey, setSessionKeyState] = React.useState(getSessionKey());
+  const resolvePage = React.useCallback((key) => {
+    const map = {
+      reports: window.ReportsPageV2 || window.ReportsPage,
+      receipts: window.ReceiptsPage,
+      team: window.TeamPage,
+      settings: window.SettingsPage,
+      about: window.AboutPage,
+      subscription: window.SubscriptionPage,
+      admin: window.AdminDashboard,
+      dashboard: window.CustomerDashboard
+    };
+    return map[key] || null;
+  }, []);
 
   const isSuperAdmin = profile?.is_super_admin === true || (profile?.role === "admin" && !profile?.company_id);
 
@@ -270,34 +283,57 @@ function App() {
 
   let page = null;
   if (activeView === "reports") {
-    const ActiveReportsPage = window.ReportsPageV2 || window.ReportsPage;
+    const ActiveReportsPage = resolvePage("reports");
     page = ActiveReportsPage
       ? <ActiveReportsPage profile={profile} company={company} />
       : <p className="text-sm text-red-600">Rapor sayfasi yuklenemedi.</p>;
   }
-  if (activeView === "receipts") page = <ReceiptsPage profile={profile} />;
-  if (activeView === "team") page = <TeamPage profile={profile} user={profile} />;
-  if (activeView === "settings") page = <SettingsPage profile={profile} />;
-  if (activeView === "about") page = <AboutPage />;
-  if (activeView === "subscription") page = <SubscriptionPage company={company} />;
+  if (activeView === "receipts") {
+    const ReceiptsComp = resolvePage("receipts");
+    page = ReceiptsComp ? <ReceiptsComp profile={profile} /> : <p className="text-sm text-red-600">Fisler sayfasi yuklenemedi.</p>;
+  }
+  if (activeView === "team") {
+    const TeamComp = resolvePage("team");
+    page = TeamComp ? <TeamComp profile={profile} user={profile} /> : <p className="text-sm text-red-600">Ekip sayfasi yuklenemedi.</p>;
+  }
+  if (activeView === "settings") {
+    const SettingsComp = resolvePage("settings");
+    page = SettingsComp ? <SettingsComp profile={profile} /> : <p className="text-sm text-red-600">Ayarlar sayfasi yuklenemedi.</p>;
+  }
+  if (activeView === "about") {
+    const AboutComp = resolvePage("about");
+    page = AboutComp ? <AboutComp /> : <p className="text-sm text-red-600">Hakkinda sayfasi yuklenemedi.</p>;
+  }
+  if (activeView === "subscription") {
+    const SubscriptionComp = resolvePage("subscription");
+    page = SubscriptionComp ? <SubscriptionComp company={company} /> : <p className="text-sm text-red-600">Abonelik sayfasi yuklenemedi.</p>;
+  }
   if (activeView === "admin") {
+    const AdminComp = resolvePage("admin");
     page = isSuperAdmin
-      ? <AdminDashboard companies={allCompanies} usageLogs={usageLogs} storageSummary={storageSummary} />
+      ? (AdminComp
+        ? <AdminComp companies={allCompanies} usageLogs={usageLogs} storageSummary={storageSummary} />
+        : <p className="text-sm text-red-600">Super admin sayfasi yuklenemedi.</p>)
       : <p className="text-sm text-red-600">Bu alan yalnizca super admin icin.</p>;
   }
   if (activeView === "dashboard") {
+    const DashboardComp = resolvePage("dashboard");
     page = (
-      <CustomerDashboard
-        company={company}
-        usageLogs={usageLogs}
-        receipts={receipts}
-        onUpdateReceipt={handleUpdateReceipt}
-        onUpdateStatus={handleUpdateStatus}
-        onDeleteReceipt={handleDeleteReceipt}
-        receiptTableSimple={true}
-        onRefreshReceipts={loadData}
-        profile={profile}
-      />
+      DashboardComp ? (
+        <DashboardComp
+          company={company}
+          usageLogs={usageLogs}
+          receipts={receipts}
+          onUpdateReceipt={handleUpdateReceipt}
+          onUpdateStatus={handleUpdateStatus}
+          onDeleteReceipt={handleDeleteReceipt}
+          receiptTableSimple={true}
+          onRefreshReceipts={loadData}
+          profile={profile}
+        />
+      ) : (
+        <p className="text-sm text-red-600">Genel bakis sayfasi yuklenemedi.</p>
+      )
     );
   }
 
