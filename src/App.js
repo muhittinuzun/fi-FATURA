@@ -27,7 +27,7 @@ function App() {
   const [forgotLoading, setForgotLoading] = React.useState(false);
   const [sessionKey, setSessionKeyState] = React.useState(getSessionKey());
   const isSuperAdminProfile = React.useCallback(
-    (p) => p?.is_super_admin === true || (p?.role === "admin" && !p?.company_id),
+    (p) => p?.is_super_admin === true || p?.role === "admin",
     []
   );
   const getDefaultViewForProfile = React.useCallback(
@@ -75,7 +75,7 @@ function App() {
         setReceipts([]);
       }
 
-      if (bootstrap.profile?.is_super_admin) {
+      if (isSuperAdminProfile(bootstrap.profile)) {
         const adminData = await adminDashboardRequest();
         setAllCompanies(adminData.companies || []);
         setUsageLogs(adminData.usage_logs || bootstrap.usage_logs || []);
@@ -92,7 +92,7 @@ function App() {
     } finally {
       setLoading(false);
     }
-  }, [adminDashboardRequest, bootstrapRequest, fetchReceipts, clearSessionKey, getDefaultViewForProfile]);
+  }, [adminDashboardRequest, bootstrapRequest, fetchReceipts, clearSessionKey, getDefaultViewForProfile, isSuperAdminProfile]);
 
   React.useEffect(() => {
     if (!sessionKey) {
@@ -324,16 +324,15 @@ function App() {
       ? (AdminComp
         ? <AdminComp companies={allCompanies} usageLogs={usageLogs} storageSummary={storageSummary} />
         : <p className="text-sm text-red-600">Super admin sayfasi yuklenemedi.</p>)
-      : <p className="text-sm text-red-600">Bu alan yalnizca super admin icin.</p>;
+      : <p className="text-sm text-red-600">Bu alan yalnizca admin kullanicilar icin.</p>;
   }
   if (activeView === "dashboard") {
-    const selectedCompanyId = localStorage.getItem("selected_company_id");
     if (isSuperAdmin) {
       const AdminComp = resolvePage("admin");
       page = AdminComp
         ? <AdminComp companies={allCompanies} usageLogs={usageLogs} storageSummary={storageSummary} />
         : <p className="text-sm text-red-600">Super admin sayfasi yuklenemedi.</p>;
-    } else if (profile?.role === "mali_musavir" && !selectedCompanyId) {
+    } else if (profile?.role === "mali_musavir") {
       const AdvisorComp = window.AdvisorDashboard;
       page = AdvisorComp
         ? (
