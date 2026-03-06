@@ -6,7 +6,6 @@ function App() {
     fetchReceipts,
     getSessionKey,
     loginRequest,
-    registerRequest,
     forgotPasswordRequest
   } = window;
   const [profile, setProfile] = React.useState(null);
@@ -16,11 +15,10 @@ function App() {
   const [allCompanies, setAllCompanies] = React.useState([]);
   const [storageSummary, setStorageSummary] = React.useState(null);
   const [activeView, setActiveView] = React.useState("dashboard");
+  const [currentPage, setCurrentPage] = React.useState("login");
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState("");
   const [loginForm, setLoginForm] = React.useState({ email: "", password: "" });
-  const [registerForm, setRegisterForm] = React.useState({ company_name: "", email: "", password: "", telegram_id: "" });
-  const [showRegister, setShowRegister] = React.useState(false);
   const [showForgotPassword, setShowForgotPassword] = React.useState(false);
   const [forgotEmail, setForgotEmail] = React.useState("");
   const [forgotMessage, setForgotMessage] = React.useState("");
@@ -114,18 +112,6 @@ function App() {
     }
   };
 
-  const handleRegister = async (e) => {
-    e.preventDefault();
-    setError("");
-    try {
-      await registerRequest(registerForm);
-      setShowRegister(false);
-      setRegisterForm({ company_name: "", email: "", password: "", telegram_id: "" });
-    } catch (err) {
-      setError(err.message || "Kayit olusturulamadi.");
-    }
-  };
-
   const handleForgotPassword = async (e) => {
     e.preventDefault();
     setForgotLoading(true);
@@ -186,9 +172,11 @@ function App() {
   if (loading) return <div className="p-10 text-center text-slate-500">Yukleniyor...</div>;
 
   if (!sessionKey || !profile) {
+    const RegisterComp = window.RegisterPage;
     return (
-      <main className="min-h-screen grid place-items-center p-4">
-        {!showRegister ? (
+      <>
+        {currentPage === "login" ? (
+          <main className="min-h-screen grid place-items-center p-4">
           <form onSubmit={handleLogin} className="w-full max-w-md bg-white border border-slate-200 rounded-xl p-6 space-y-3">
             <h2 className="text-xl font-bold">Fismatik Giris</h2>
             <input
@@ -209,7 +197,7 @@ function App() {
             />
             <button className="w-full bg-brand text-white rounded-lg px-3 py-2">Giris Yap</button>
             <div className="grid grid-cols-2 gap-2">
-              <button type="button" onClick={() => setShowRegister(true)} className="w-full text-sm underline">
+              <button type="button" onClick={() => setCurrentPage("register")} className="w-full text-sm underline">
                 Yeni Kayit
               </button>
               <button
@@ -248,46 +236,22 @@ function App() {
             )}
             {error && <p className="text-sm text-red-600">{error}</p>}
           </form>
+          </main>
         ) : (
-          <form onSubmit={handleRegister} className="w-full max-w-md bg-white border border-slate-200 rounded-xl p-6 space-y-3">
-            <h2 className="text-xl font-bold">Yeni Sirket Kaydi</h2>
-            <input
-              required
-              placeholder="Sirket adi"
-              className="w-full border border-slate-200 rounded-lg px-3 py-2"
-              value={registerForm.company_name}
-              onChange={(e) => setRegisterForm((prev) => ({ ...prev, company_name: e.target.value }))}
-            />
-            <input
-              type="email"
-              required
-              placeholder="E-posta"
-              className="w-full border border-slate-200 rounded-lg px-3 py-2"
-              value={registerForm.email}
-              onChange={(e) => setRegisterForm((prev) => ({ ...prev, email: e.target.value }))}
-            />
-            <input
-              type="password"
-              required
-              placeholder="Sifre"
-              className="w-full border border-slate-200 rounded-lg px-3 py-2"
-              value={registerForm.password}
-              onChange={(e) => setRegisterForm((prev) => ({ ...prev, password: e.target.value }))}
-            />
-            <input
-              placeholder="Telegram ID (opsiyonel)"
-              className="w-full border border-slate-200 rounded-lg px-3 py-2"
-              value={registerForm.telegram_id}
-              onChange={(e) => setRegisterForm((prev) => ({ ...prev, telegram_id: e.target.value }))}
-            />
-            <button className="w-full bg-brand text-white rounded-lg px-3 py-2">Kayit Olustur</button>
-            <button type="button" onClick={() => setShowRegister(false)} className="w-full text-sm underline">
-              Girise Don
-            </button>
-            {error && <p className="text-sm text-red-600">{error}</p>}
-          </form>
+          RegisterComp
+            ? <RegisterComp onNavigate={(page) => setCurrentPage(page)} />
+            : (
+              <main className="min-h-screen grid place-items-center p-4">
+                <div className="w-full max-w-md bg-white border border-slate-200 rounded-xl p-6 space-y-2">
+                  <p className="text-sm text-red-600">Kayit sayfasi yuklenemedi.</p>
+                  <button type="button" onClick={() => setCurrentPage("login")} className="text-sm underline">
+                    Giris ekranina don
+                  </button>
+                </div>
+              </main>
+            )
         )}
-      </main>
+      </>
     );
   }
 

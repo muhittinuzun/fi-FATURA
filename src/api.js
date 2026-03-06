@@ -21,14 +21,24 @@ const getSessionKey = () => localStorage.getItem(SESSION_KEY_STORAGE) || "";
 const setSessionKey = (value) => localStorage.setItem(SESSION_KEY_STORAGE, value);
 const clearSessionKey = () => localStorage.removeItem(SESSION_KEY_STORAGE);
 
-const gatewayRequest = async (action, payload = {}, sessionKey = getSessionKey()) => {
+const gatewayRequest = async (actionOrConfig, payload = {}, sessionKey = getSessionKey()) => {
+  let action = actionOrConfig;
+  let requestPayload = payload;
+  let requestSessionKey = sessionKey;
+
+  if (actionOrConfig && typeof actionOrConfig === "object" && !Array.isArray(actionOrConfig)) {
+    action = actionOrConfig.action;
+    requestPayload = actionOrConfig.payload || {};
+    requestSessionKey = actionOrConfig.session_key ?? getSessionKey();
+  }
+
   const response = await fetch(window.N8N_GATEWAY_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       action,
-      payload,
-      session_key: sessionKey || ""
+      payload: requestPayload,
+      session_key: requestSessionKey || ""
     })
   });
   return parseResponse(response);
@@ -41,6 +51,23 @@ const loginRequest = async (email, password) => {
 };
 
 const registerRequest = async (payload) => gatewayRequest("register", payload, "");
+const apiRegister = async function apiRegister(payload) {
+  return await gatewayRequest({
+    action: "register",
+    payload: {
+      role: payload.role,
+      first_name: payload.firstName,
+      last_name: payload.lastName,
+      email: payload.email,
+      phone: payload.phone,
+      password: payload.password,
+      company_name: payload.companyName,
+      vergi_dairesi: payload.taxOffice,
+      vergi_no: payload.taxId
+    },
+    session_key: ""
+  });
+};
 const bootstrapRequest = async () => gatewayRequest("get_reports", { view: "bootstrap" });
 const adminDashboardRequest = async () => gatewayRequest("get_reports", { view: "admin_dashboard" });
 const forgotPasswordRequest = async (email) => gatewayRequest("forgot_password", { email }, "");
@@ -51,6 +78,7 @@ window.clearSessionKey = clearSessionKey;
 window.gatewayRequest = gatewayRequest;
 window.loginRequest = loginRequest;
 window.registerRequest = registerRequest;
+window.apiRegister = apiRegister;
 window.bootstrapRequest = bootstrapRequest;
 window.adminDashboardRequest = adminDashboardRequest;
 window.forgotPasswordRequest = forgotPasswordRequest;
