@@ -1,18 +1,31 @@
 function ReceiptsPage({ profile }) {
   const [receipts, setReceipts] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState("");
 
   const loadReceipts = React.useCallback(async () => {
     setLoading(true);
+    setError("");
     try {
       const data = await window.fetchReceipts({});
       setReceipts(data?.receipts || []);
     } catch (err) {
-      console.error("Fiş yükleme hatası:", err);
+      setError(err.message || "Fis yukleme hatasi.");
     } finally {
       setLoading(false);
     }
   }, []);
+
+  const handleDeleteReceipt = async (receiptId) => {
+    if (!receiptId) return;
+    if (!window.confirm("Bu fisi silmek istediginize emin misiniz?")) return;
+    try {
+      await window.gatewayRequest("delete_receipt", { receipt_id: receiptId });
+      await loadReceipts();
+    } catch (err) {
+      setError(err.message || "Silme islemi basarisiz.");
+    }
+  };
 
   React.useEffect(() => {
     loadReceipts();
@@ -30,12 +43,14 @@ function ReceiptsPage({ profile }) {
           <Icon name="refresh-ccw" size={18} />
         </button>
       </div>
+      {error && <p className="text-sm text-rose-600 mb-3">{error}</p>}
       <ReceiptTable
         receipts={receipts}
         loading={loading}
         simple={false}
         profile={profile}
         onRefresh={loadReceipts}
+        onDeleteReceipt={handleDeleteReceipt}
       />
     </div>
   );

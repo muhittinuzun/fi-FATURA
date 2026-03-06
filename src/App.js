@@ -26,6 +26,14 @@ function App() {
   const [forgotMessage, setForgotMessage] = React.useState("");
   const [forgotLoading, setForgotLoading] = React.useState(false);
   const [sessionKey, setSessionKeyState] = React.useState(getSessionKey());
+  const isSuperAdminProfile = React.useCallback(
+    (p) => p?.is_super_admin === true || (p?.role === "admin" && !p?.company_id),
+    []
+  );
+  const getDefaultViewForProfile = React.useCallback(
+    (p) => (isSuperAdminProfile(p) ? "admin" : "dashboard"),
+    [isSuperAdminProfile]
+  );
   const resolvePage = React.useCallback((key) => {
     const map = {
       reports: window.ReportsPageV2 || window.ReportsPage,
@@ -40,7 +48,7 @@ function App() {
     return map[key] || null;
   }, []);
 
-  const isSuperAdmin = profile?.is_super_admin === true || (profile?.role === "admin" && !profile?.company_id);
+  const isSuperAdmin = isSuperAdminProfile(profile);
 
   const loadData = React.useCallback(async () => {
     setLoading(true);
@@ -50,6 +58,8 @@ function App() {
       setProfile(bootstrap.profile || null);
       setCompany(bootstrap.company || null);
       setUsageLogs(bootstrap.usage_logs || []);
+      const defaultView = getDefaultViewForProfile(bootstrap.profile || null);
+      setActiveView((prev) => (prev === "dashboard" || prev === "admin" ? defaultView : prev));
 
       const bootstrapReceipts = Array.isArray(bootstrap.receipts) ? bootstrap.receipts : [];
       if (bootstrapReceipts.length > 0) {
@@ -82,7 +92,7 @@ function App() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [adminDashboardRequest, bootstrapRequest, fetchReceipts, clearSessionKey, getDefaultViewForProfile]);
 
   React.useEffect(() => {
     if (!sessionKey) {
@@ -170,7 +180,7 @@ function App() {
     setUsageLogs([]);
     setAllCompanies([]);
     setStorageSummary(null);
-    setActiveView("dashboard");
+    setActiveView(getDefaultViewForProfile(null));
   };
 
   if (loading) return <div className="p-10 text-center text-slate-500">Yukleniyor...</div>;
@@ -317,25 +327,46 @@ function App() {
       : <p className="text-sm text-red-600">Bu alan yalnizca super admin icin.</p>;
   }
   if (activeView === "dashboard") {
-    const DashboardComp = resolvePage("dashboard");
-    page = (
-      DashboardComp ? (
-        <DashboardComp
-          company={company}
-          usageLogs={usageLogs}
-          receipts={receipts}
-          onUpdateReceipt={handleUpdateReceipt}
-          onUpdateStatus={handleUpdateStatus}
-          onDeleteReceipt={handleDeleteReceipt}
-          receiptTableSimple={true}
-          onRefreshReceipts={loadData}
-          profile={profile}
-          onOpenBilling={() => setActiveView("subscription")}
-        />
-      ) : (
-        <p className="text-sm text-red-600">Genel bakis sayfasi yuklenemedi.</p>
-      )
-    );
+    const selectedCompanyId = localStorage.getItem("selected_company_id");
+    if (isSuperAdmin) {
+      const AdminComp = resolvePage("admin");
+      page = AdminComp
+        ? <AdminComp companies={allCompanies} usageLogs={usageLogs} storageSummary={storageSummary} />
+        : <p className="text-sm text-red-600">Super admin sayfasi yuklenemedi.</p>;
+    } else if (profile?.role === "mali_musavir" && !selectedCompanyId) {
+      const AdvisorComp = window.AdvisorDashboard;
+      page = AdvisorComp
+        ? (
+          <AdvisorComp
+            profile={profile}
+            onImpersonate={(companyId) => {
+              localStorage.setItem("selected_company_id", String(companyId));
+              window.location.reload();
+            }}
+          />
+        )
+        : <p className="text-sm text-red-600">Musavir paneli yuklenemedi.</p>;
+    } else {
+      const DashboardComp = resolvePage("dashboard");
+      page = (
+        DashboardComp ? (
+          <DashboardComp
+            company={company}
+            usageLogs={usageLogs}
+            receipts={receipts}
+            onUpdateReceipt={handleUpdateReceipt}
+            onUpdateStatus={handleUpdateStatus}
+            onDeleteReceipt={handleDeleteReceipt}
+            receiptTableSimple={true}
+            onRefreshReceipts={loadData}
+            profile={profile}
+            onOpenBilling={() => setActiveView("subscription")}
+          />
+        ) : (
+          <p className="text-sm text-red-600">Genel bakis sayfasi yuklenemedi.</p>
+        )
+      );
+    }
   }
 
   return (

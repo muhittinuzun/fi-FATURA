@@ -13,6 +13,17 @@ function CustomerDashboard({
   const totalCostUsd = usageLogs.reduce((acc, item) => acc + Number(item.estimated_cost || 0), 0);
   const totalReceiptSpend = receipts.reduce((acc, item) => acc + Number(item.toplam_tutar || item.total_amount || 0), 0);
   const kalanKredi = Number(company?.kalan_kredi || 0);
+  const recentReceipts = React.useMemo(() => {
+    const getSortValue = (item) => {
+      const candidate = item?.created_at || item?.inserted_at || item?.uploaded_at || item?.tarih || null;
+      const ts = candidate ? new Date(candidate).getTime() : 0;
+      if (Number.isFinite(ts) && ts > 0) return ts;
+      return Number(item?.id || 0);
+    };
+    return [...(receipts || [])]
+      .sort((a, b) => getSortValue(b) - getSortValue(a))
+      .slice(0, 20);
+  }, [receipts]);
 
   return (
     <div className="space-y-4">
@@ -60,7 +71,7 @@ function CustomerDashboard({
         </article>
       </section>
       <ReceiptTable
-        receipts={receipts}
+        receipts={recentReceipts}
         loading={false}
         simple={Boolean(receiptTableSimple)}
         profile={profile}

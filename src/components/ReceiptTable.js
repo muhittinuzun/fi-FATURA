@@ -1,4 +1,4 @@
-function ReceiptTable({ receipts = [], loading = false, simple = false, profile = null, onRefresh }) {
+function ReceiptTable({ receipts = [], loading = false, simple = false, profile = null, onRefresh, onDeleteReceipt }) {
   const [filters, setFilters] = React.useState({
     tarih: "",
     isletme: "",
@@ -312,12 +312,22 @@ function ReceiptTable({ receipts = [], loading = false, simple = false, profile 
                     <td className="px-4 py-3 text-center">{statusBadge(receipt.durum)}</td>
                     <td className="px-4 py-3 text-center">
                       {!simple && (
-                        <button
-                          onClick={() => openEditModal(receipt)}
-                          className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs hover:bg-slate-100"
-                        >
-                          Düzenle
-                        </button>
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            onClick={() => openEditModal(receipt)}
+                            className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs hover:bg-slate-100"
+                          >
+                            Duzenle
+                          </button>
+                          {typeof onDeleteReceipt === "function" && (
+                            <button
+                              onClick={() => onDeleteReceipt(receipt.id)}
+                              className="px-3 py-1.5 rounded-lg border border-rose-200 text-rose-600 text-xs hover:bg-rose-50"
+                            >
+                              Sil
+                            </button>
+                          )}
+                        </div>
                       )}
                     </td>
                   </tr>

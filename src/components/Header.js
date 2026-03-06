@@ -1,4 +1,21 @@
 function Header({ companyName, role, onLogout, kalanKredi }) {
+  const isAdvisor = role === "mali_musavir";
+  const advisorCompanies = [
+    { id: "101", label: "Ornek A Sirketi" },
+    { id: "102", label: "Ornek B Ltd." },
+    { id: "103", label: "Ornek C A.S." }
+  ];
+  const [selectedCompanyId, setSelectedCompanyId] = React.useState(localStorage.getItem("selected_company_id") || "");
+  const roleLabel =
+    role === "mali_musavir" ? "Mali Musavir" : role === "admin" ? "Yonetici" : "Kullanici";
+
+  const handleAdvisorCompanyChange = (e) => {
+    const nextId = e.target.value;
+    setSelectedCompanyId(nextId);
+    localStorage.setItem("selected_company_id", nextId);
+    window.location.reload();
+  };
+
   return (
     <header className="bg-white border-b border-slate-200 px-8 py-4 flex items-center justify-between sticky top-0 z-40 backdrop-blur-md bg-white/80">
       <div className="flex items-center gap-4">
@@ -14,15 +31,30 @@ function Header({ companyName, role, onLogout, kalanKredi }) {
         <div className="h-8 w-px bg-slate-200 mx-2 hidden md:block"></div>
         <div className="hidden md:block">
           <p className="text-sm font-bold text-slate-800 leading-none mb-1">{companyName || "Şirket Bilgisi Yok"}</p>
-          <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">{role === 'admin' ? 'Yönetici' : 'Kullanıcı'}</p>
+          <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">{roleLabel}</p>
         </div>
       </div>
 
       <div className="flex items-center gap-3">
+        {isAdvisor && (
+          <select
+            value={selectedCompanyId}
+            onChange={handleAdvisorCompanyChange}
+            className="hidden md:block px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white text-slate-700"
+            title="Musteri sec"
+          >
+            <option value="">Musteri secin</option>
+            {advisorCompanies.map((item) => (
+              <option key={item.id} value={item.id}>{item.label}</option>
+            ))}
+          </select>
+        )}
+        {!isAdvisor && (
         <div className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-100">
           <Icon name="Wallet" size={16} className="text-emerald-600" />
           <span className="text-xs text-emerald-700 font-semibold">Kalan Kontor: {Number(kalanKredi || 0)}</span>
         </div>
+        )}
         <button
           onClick={onLogout}
           className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-50 hover:bg-rose-50 text-slate-600 hover:text-rose-600 text-sm font-bold transition-all border border-slate-200 hover:border-rose-100 group"
