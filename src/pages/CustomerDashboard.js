@@ -7,21 +7,29 @@ function CustomerDashboard({
   onDeleteReceipt,
   onRefreshReceipts,
   receiptTableSimple,
-  profile
+  profile,
+  onOpenBilling
 }) {
   const totalCostUsd = usageLogs.reduce((acc, item) => acc + Number(item.estimated_cost || 0), 0);
   const totalReceiptSpend = receipts.reduce((acc, item) => acc + Number(item.toplam_tutar || item.total_amount || 0), 0);
-  const totalLimit = Number(company?.monthly_limit || 0) + Number(company?.extra_credits || 0);
-  const limitExceeded = Number(company?.used_this_month || 0) >= totalLimit && totalLimit > 0;
+  const kalanKredi = Number(company?.kalan_kredi || 0);
 
   return (
     <div className="space-y-4">
-      <ProgressBar
-        used={company?.used_this_month}
-        limit={company?.monthly_limit}
-        extra={company?.extra_credits}
-      />
-      <SupportBanner isLimitExceeded={limitExceeded} />
+      <section className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm text-slate-500 mb-1">Kalan Fis Kontorunuz</p>
+            <p className="text-3xl font-black text-slate-900">{kalanKredi}</p>
+          </div>
+          <button
+            onClick={() => typeof onOpenBilling === "function" && onOpenBilling()}
+            className="px-4 py-2 rounded-lg bg-brand text-white text-sm font-semibold hover:bg-brand/90"
+          >
+            Kontor Yukle
+          </button>
+        </div>
+      </section>
       <section className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
         <p className="text-sm text-slate-600">
           Fis gorselleri panelden yuklenmez. Kullanici yuklemeleri Telegram bot uzerinden alinir,

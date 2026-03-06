@@ -4,7 +4,7 @@ const menuItems = [
   { id: "reports", label: "Raporlar", icon: "bar-chart-3" },
   { id: "team", label: "Ekip Yönetimi", icon: "users", adminOnly: true },
   { id: "settings", label: "Ayarlar", icon: "settings" },
-  { id: "subscription", label: "Abonelik", icon: "credit-card" },
+  { id: "subscription", label: "Kontor Yukle", icon: "credit-card" },
   { id: "about", label: "Hakkında", icon: "info" },
   { id: "admin", label: "Super Admin", icon: "shield", superAdminOnly: true }
 ];

@@ -1,0 +1,1342 @@
+{"test":1}
+{
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {
+          "download": true
+        }
+      },
+      "id": "trigger-node",
+      "name": "Telegram Gelen Mesaj",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "CFzJKjsFQ3QPP0Vt",
+          "name": "ITTFISMATIKBOT"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 1,
+        "unit": "seconds"
+      },
+      "id": "wait-node",
+      "name": "Siraya Koy",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT u.id, u.company_id, u.full_name, c.company_name, c.is_active FROM users u JOIN companies c ON c.id = u.company_id WHERE u.telegram_id = $1 LIMIT 1;",
+        "options": {
+          "queryReplacement": "={{ [String($('Telegram Gelen Mesaj').first().json.message.chat.id)] }}"
+        }
+      },
+      "id": "auth-node",
+      "name": "Kullanici ve Sirket Kontrolu",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        460,
+        0
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "c0xPSSHQBi5bwXF5",
+          "name": "FISmatik"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {},
+          "conditions": [
+            {
+              "id": "check-user",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "check-active",
+              "leftValue": "={{ String($json.is_active) }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "auth-if",
+      "name": "Yetkili mi",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        700,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Gelen Mesaj').first().json.message.chat.id }}",
+        "text": "Sisteme kayitli degilsiniz veya sirketiniz aktif degil."
+      },
+      "id": "reject-msg",
+      "name": "Red Mesaji",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        920,
+        180
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "CFzJKjsFQ3QPP0Vt",
+          "name": "ITTFISMATIKBOT"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const src = $('Telegram Gelen Mesaj').first();\nconst bin = src.binary || {};\nconst keys = Object.keys(bin);\nif (!keys.length) throw new Error('Gorsel bulunamadi');\nconst first = keys[0];\nconst imageBinary = bin[first];\nconst base64Image = imageBinary.data;\nconst fileExt = (imageBinary.fileExtension || 'jpg').replace('.', '');\nconst fileName = `${src.json.message.chat.id}_${Date.now()}.${fileExt}`;\nreturn [{\n  json: {\n    chat_id: src.json.message.chat.id,\n    fileName,\n    base64Image\n  },\n  binary: {\n    image: imageBinary\n  }\n}];"
+      },
+      "id": "prepare-file",
+      "name": "Dosyayi Hazirla",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        920,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id }}",
+        "text": "Gorsel alindi, analiz basliyor."
+      },
+      "id": "processing-msg",
+      "name": "Inceleniyor Mesaji",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1160,
+        -80
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "CFzJKjsFQ3QPP0Vt",
+          "name": "ITTFISMATIKBOT"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "upload",
+        "bucketName": "cdn.fisfatura.com",
+        "binaryData": true,
+        "binaryPropertyName": "image",
+        "fileName": "={{ `${$('Kullanici ve Sirket Kontrolu').first().json.company_id}/${$('Kullanici ve Sirket Kontrolu').first().json.company_name}/fisler/${$now.format('yyyy/MM')}/${$('Dosyayi Hazirla').first().json.fileName}` }}"
+      },
+      "id": "s3-node",
+      "name": "S3 Yukleme",
+      "type": "n8n-nodes-base.awsS3",
+      "typeVersion": 2,
+      "position": [
+        1400,
+        -80
+      ],
+      "credentials": {
+        "aws": {
+          "id": "N8W9Eg6vOryjKoZM",
+          "name": "S3 ITT"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://vision.googleapis.com/v1/images:annotate?key=AIzaSyBltZRduPsCwMxqTP1-AwQqBHvS2fHjHt4",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"requests\": [\n    {\n      \"image\": { \"content\": \"{{ $('Dosyayi Hazirla').first().json.base64Image }}\" },\n      \"features\": [\n        { \"type\": \"TEXT_DETECTION\" },\n        { \"type\": \"DOCUMENT_TEXT_DETECTION\", \"maxResults\": 1 }\n      ]\n    }\n  ]\n}"
+      },
+      "id": "vision-node",
+      "name": "Google Vision OCR",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1640,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const ocrResult = $json.responses?.[0]?.textAnnotations?.[0]?.description || '';\nif (!ocrResult || ocrResult.trim().length < 10) {\n  return [{ json: { isFis: false, reason: 'Yazi okunamadi', text: ocrResult } }];\n}\nconst text = ocrResult.toLowerCase();\nconst keywords = ['kdv','toplam','tutar','fis','fatura','odeme','kart','nakit','tarih','matrah','vergi'];\nconst hasNumbers = /\\d+[.,]?\\d*/.test(text);\nconst keywordCount = keywords.filter((k) => text.includes(k)).length;\nconst isFis = keywordCount >= 2 && hasNumbers;\nreturn [{ json: { isFis, reason: isFis ? 'OK' : 'Fis kriterlerine uymuyor', text: ocrResult } }];"
+      },
+      "id": "fis-check",
+      "name": "Fis Dogrulama",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1880,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {},
+          "conditions": [
+            {
+              "id": "fis-ok",
+              "leftValue": "={{ $json.isFis }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "fis-if",
+      "name": "Gercekten Fis mi",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2100,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "editMessageText",
+        "chatId": "={{ $('Dosyayi Hazirla').first().json.chat_id }}",
+        "messageId": "={{ $('Inceleniyor Mesaji').first().json.result.message_id }}",
+        "text": "=Gorsel reddedildi. Sebep: {{ $('Fis Dogrulama').first().json.reason }}"
+      },
+      "id": "not-fis-msg",
+      "name": "Fis Degil Mesaji",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2340,
+        120
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "CFzJKjsFQ3QPP0Vt",
+          "name": "ITTFISMATIKBOT"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT name FROM categories WHERE company_id = $1 ORDER BY name ASC;",
+        "options": {
+          "queryReplacement": "={{ [ $('Kullanici ve Sirket Kontrolu').first().json.company_id ] }}"
+        }
+      },
+      "id": "cat-node",
+      "name": "Kategorileri Cek",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        2340,
+        -220
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "c0xPSSHQBi5bwXF5",
+          "name": "FISmatik"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const cats = $input.all().map((i) => i.json.name).filter(Boolean);\nconst catList = cats.length ? cats : ['Market', 'Yemek', 'Yakit', 'Diger'];\nconst ocrText = $('Fis Dogrulama').first().json.text || '';\nconst prompt = `Asagidaki OCR metnini analiz et ve sadece gecerli JSON dondur.\\nKategori secenekleri: ${catList.join(', ')}\\n\\nOCR:\\n${ocrText}`;\nconst schema = {\n  IsletmeAdi: 'string',\n  Tarih: 'string',\n  Saat: 'string',\n  FisNumarasi: 'string',\n  ToplamTutar: 'number',\n  OdemeTipi: 'string',\n  KartSon4Hane: 'string',\n  UrunlerVeKDVBilgileri: [\n    {\n      Aciklama: 'string',\n      Kategori: 'string',\n      KDVOrani: 'number',\n      Matrah: 'number',\n      KDVTutari: 'number',\n      Tutar_KDVDahil: 'number'\n    }\n  ]\n};\nreturn [{ json: { user_prompt: prompt, system_prompt: `Yalnizca JSON dondur. Beklenen sema: ${JSON.stringify(schema)}` } }];"
+      },
+      "id": "prompt-node",
+      "name": "Prompt Hazirla",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2580,
+        -220
+      ]
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "value": "models/gemini-2.5-flash",
+          "mode": "list"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "={{ $json.user_prompt }}"
+            }
+          ]
+        },
+        "jsonOutput": true,
+        "options": {
+          "systemMessage": "={{ $json.system_prompt }}",
+          "temperature": 0
+        }
+      },
+      "id": "gemini-node",
+      "name": "Gemini Analiz",
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1,
+      "position": [
+        2820,
+        -220
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "mg6Qkierq2X8bX9f",
+          "name": "DEMOPROJE"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $json.content || $json.text || $json.output || JSON.stringify($json);\nlet obj = null;\nif (typeof raw === 'string') {\n  const cleaned = raw.replace(/```json|```/g, '').trim();\n  obj = JSON.parse(cleaned);\n} else if (typeof raw === 'object') {\n  obj = raw;\n}\nif (!obj || typeof obj !== 'object') throw new Error('Gemini JSON parse edilemedi');\nconst details = Array.isArray(obj.UrunlerVeKDVBilgileri) ? obj.UrunlerVeKDVBilgileri.map((x) => ({\n  aciklama: x.Aciklama || '',\n  kategori: x.Kategori || '',\n  kdv_oran: Number(x.KDVOrani || 0),\n  matrah: Number(x.Matrah || 0),\n  kdv_tutar: Number(x.KDVTutari || 0),\n  tutar: Number(x.Tutar_KDVDahil || 0)\n})) : [];\nreturn [{ json: {\n  isletme_adi: obj.IsletmeAdi || '',\n  tarih: obj.Tarih || null,\n  saat: obj.Saat || null,\n  fis_no: obj.FisNumarasi || '',\n  toplam_tutar: Number(obj.ToplamTutar || 0),\n  odeme_tipi: obj.OdemeTipi || '',\n  kart_son_4: obj.KartSon4Hane || '',\n  kategori: details[0]?.kategori || 'Diger',\n  ocr_detaylari: details\n} }];"
+      },
+      "id": "parse-node",
+      "name": "Gemini Cevap Parse",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3060,
+        -220
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO fisler (company_id, user_id, isletme_adi, tarih, saat, fis_no, toplam_tutar, para_birimi, kart_son_4, odeme_tipi, kategori, proje, gorsel_url, ocr_detaylari, durum, created_at) VALUES ($1, $2, $3, NULLIF($4, '')::date, NULLIF($5, '')::time, $6, $7, 'TRY', NULLIF($8, ''), $9, $10, NULL, $11, $12::jsonb, 'beklemede', now()) RETURNING id;",
+        "options": {
+          "queryReplacement": "={{ [\n+            $('Kullanici ve Sirket Kontrolu').first().json.company_id,\n+            $('Kullanici ve Sirket Kontrolu').first().json.id,\n+            $json.isletme_adi,\n+            $json.tarih,\n+            $json.saat,\n+            $json.fis_no,\n+            $json.toplam_tutar,\n+            $json.kart_son_4,\n+            $json.odeme_tipi,\n+            $json.kategori,\n+            `https://cdn.fisfatura.com/${$('Kullanici ve Sirket Kontrolu').first().json.company_id}/${$('Kullanici ve Sirket Kontrolu').first().json.company_name}/fisler/${$now.format('yyyy/MM')}/${$('Dosyayi Hazirla').first().json.fileName}`,\n+            JSON.stringify($json.ocr_detaylari || [])\n+          ] }}"
+        }
+      },
+      "id": "insert-node",
+      "name": "Fis Kaydet",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        3300,
+        -220
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "c0xPSSHQBi5bwXF5",
+          "name": "FISmatik"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "editMessageText",
+        "chatId": "={{ $('Dosyayi Hazirla').first().json.chat_id }}",
+        "messageId": "={{ $('Inceleniyor Mesaji').first().json.result.message_id }}",
+        "text": "=Fis kaydedildi. Kayit No: {{ $json.id }}"
+      },
+      "id": "success-msg",
+      "name": "Basari Mesaji",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        3540,
+        -220
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "CFzJKjsFQ3QPP0Vt",
+          "name": "ITTFISMATIKBOT"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Telegram Gelen Mesaj": {
+      "main": [
+        [
+          {
+            "node": "Siraya Koy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Siraya Koy": {
+      "main": [
+        [
+          {
+            "node": "Kullanici ve Sirket Kontrolu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kullanici ve Sirket Kontrolu": {
+      "main": [
+        [
+          {
+            "node": "Yetkili mi",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Yetkili mi": {
+      "main": [
+        [
+          {
+            "node": "Dosyayi Hazirla",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Red Mesaji",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dosyayi Hazirla": {
+      "main": [
+        [
+          {
+            "node": "Inceleniyor Mesaji",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Inceleniyor Mesaji": {
+      "main": [
+        [
+          {
+            "node": "S3 Yukleme",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "S3 Yukleme": {
+      "main": [
+        [
+          {
+            "node": "Google Vision OCR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Vision OCR": {
+      "main": [
+        [
+          {
+            "node": "Fis Dogrulama",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fis Dogrulama": {
+      "main": [
+        [
+          {
+            "node": "Gercekten Fis mi",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gercekten Fis mi": {
+      "main": [
+        [
+          {
+            "node": "Kategorileri Cek",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fis Degil Mesaji",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kategorileri Cek": {
+      "main": [
+        [
+          {
+            "node": "Prompt Hazirla",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prompt Hazirla": {
+      "main": [
+        [
+          {
+            "node": "Gemini Analiz",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Analiz": {
+      "main": [
+        [
+          {
+            "node": "Gemini Cevap Parse",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Cevap Parse": {
+      "main": [
+        [
+          {
+            "node": "Fis Kaydet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fis Kaydet": {
+      "main": [
+        [
+          {
+            "node": "Basari Mesaji",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}
+{
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {
+          "download": true
+        }
+      },
+      "id": "trigger-node",
+      "name": "Telegram Gelen Mesaj",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "CFzJKjsFQ3QPP0Vt",
+          "name": "ITTFISMATIKBOT"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 1,
+        "unit": "seconds"
+      },
+      "id": "wait-node",
+      "name": "Siraya Koy",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT u.id, u.company_id, u.full_name, c.company_name, c.is_active FROM users u JOIN companies c ON c.id = u.company_id WHERE u.telegram_id = $1 LIMIT 1;",
+        "options": {
+          "queryReplacement": "={{ [String($('Telegram Gelen Mesaj').first().json.message.chat.id)] }}"
+        }
+      },
+      "id": "auth-node",
+      "name": "Kullanici ve Sirket Kontrolu",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        460,
+        0
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "c0xPSSHQBi5bwXF5",
+          "name": "FISmatik"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {},
+          "conditions": [
+            {
+              "id": "check-user",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "check-active",
+              "leftValue": "={{ String($json.is_active) }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "auth-if",
+      "name": "Yetkili mi",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        700,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Gelen Mesaj').first().json.message.chat.id }}",
+        "text": "Sisteme kayitli degilsiniz veya sirketiniz aktif degil."
+      },
+      "id": "reject-msg",
+      "name": "Red Mesaji",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        920,
+        180
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "CFzJKjsFQ3QPP0Vt",
+          "name": "ITTFISMATIKBOT"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const src = $('Telegram Gelen Mesaj').first();\nconst bin = src.binary || {};\nconst keys = Object.keys(bin);\nif (!keys.length) throw new Error('Gorsel bulunamadi');\nconst first = keys[0];\nconst imageBinary = bin[first];\nconst base64Image = imageBinary.data;\nconst fileExt = (imageBinary.fileExtension || 'jpg').replace('.', '');\nconst fileName = `${src.json.message.chat.id}_${Date.now()}.${fileExt}`;\nreturn [{\n  json: {\n    chat_id: src.json.message.chat.id,\n    fileName,\n    base64Image\n  },\n  binary: {\n    image: imageBinary\n  }\n}];"
+      },
+      "id": "prepare-file",
+      "name": "Dosyayi Hazirla",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        920,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id }}",
+        "text": "Gorsel alindi, analiz basliyor."
+      },
+      "id": "processing-msg",
+      "name": "Inceleniyor Mesaji",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1160,
+        -80
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "CFzJKjsFQ3QPP0Vt",
+          "name": "ITTFISMATIKBOT"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "upload",
+        "bucketName": "cdn.fisfatura.com",
+        "binaryData": true,
+        "binaryPropertyName": "image",
+        "fileName": "={{ `${$('Kullanici ve Sirket Kontrolu').first().json.company_id}/${$('Kullanici ve Sirket Kontrolu').first().json.company_name}/fisler/${$now.format('yyyy/MM')}/${$('Dosyayi Hazirla').first().json.fileName}` }}"
+      },
+      "id": "s3-node",
+      "name": "S3 Yukleme",
+      "type": "n8n-nodes-base.awsS3",
+      "typeVersion": 2,
+      "position": [
+        1400,
+        -80
+      ],
+      "credentials": {
+        "aws": {
+          "id": "N8W9Eg6vOryjKoZM",
+          "name": "S3 ITT"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://vision.googleapis.com/v1/images:annotate?key=AIzaSyBltZRduPsCwMxqTP1-AwQqBHvS2fHjHt4",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"requests\": [\n    {\n      \"image\": { \"content\": \"{{ $('Dosyayi Hazirla').first().json.base64Image }}\" },\n      \"features\": [\n        { \"type\": \"TEXT_DETECTION\" },\n        { \"type\": \"DOCUMENT_TEXT_DETECTION\", \"maxResults\": 1 }\n      ]\n    }\n  ]\n}"
+      },
+      "id": "vision-node",
+      "name": "Google Vision OCR",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1640,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const ocrResult = $json.responses?.[0]?.textAnnotations?.[0]?.description || '';\nif (!ocrResult || ocrResult.trim().length < 10) {\n  return [{ json: { isFis: false, reason: 'Yazi okunamadi', text: ocrResult } }];\n}\nconst text = ocrResult.toLowerCase();\nconst keywords = ['kdv','toplam','tutar','fis','fatura','odeme','kart','nakit','tarih','matrah','vergi'];\nconst hasNumbers = /\\d+[.,]?\\d*/.test(text);\nconst keywordCount = keywords.filter((k) => text.includes(k)).length;\nconst isFis = keywordCount >= 2 && hasNumbers;\nreturn [{ json: { isFis, reason: isFis ? 'OK' : 'Fis kriterlerine uymuyor', text: ocrResult } }];"
+      },
+      "id": "fis-check",
+      "name": "Fis Dogrulama",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1880,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {},
+          "conditions": [
+            {
+              "id": "fis-ok",
+              "leftValue": "={{ $json.isFis }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "fis-if",
+      "name": "Gercekten Fis mi",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2100,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "editMessageText",
+        "chatId": "={{ $('Dosyayi Hazirla').first().json.chat_id }}",
+        "messageId": "={{ $('Inceleniyor Mesaji').first().json.result.message_id }}",
+        "text": "=Gorsel reddedildi. Sebep: {{ $('Fis Dogrulama').first().json.reason }}"
+      },
+      "id": "not-fis-msg",
+      "name": "Fis Degil Mesaji",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2340,
+        120
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "CFzJKjsFQ3QPP0Vt",
+          "name": "ITTFISMATIKBOT"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT name FROM categories WHERE company_id = $1 ORDER BY name ASC;",
+        "options": {
+          "queryReplacement": "={{ [ $('Kullanici ve Sirket Kontrolu').first().json.company_id ] }}"
+        }
+      },
+      "id": "cat-node",
+      "name": "Kategorileri Cek",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        2340,
+        -220
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "c0xPSSHQBi5bwXF5",
+          "name": "FISmatik"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const cats = $input.all().map((i) => i.json.name).filter(Boolean);\nconst catList = cats.length ? cats : ['Market', 'Yemek', 'Yakit', 'Diger'];\nconst ocrText = $('Fis Dogrulama').first().json.text || '';\nconst prompt = `Asagidaki OCR metnini analiz et ve sadece gecerli JSON dondur.\\nKategori secenekleri: ${catList.join(', ')}\\n\\nOCR:\\n${ocrText}`;\nconst schema = {\n  IsletmeAdi: 'string',\n  Tarih: 'string',\n  Saat: 'string',\n  FisNumarasi: 'string',\n  ToplamTutar: 'number',\n  OdemeTipi: 'string',\n  KartSon4Hane: 'string',\n  UrunlerVeKDVBilgileri: [\n    {\n      Aciklama: 'string',\n      Kategori: 'string',\n      KDVOrani: 'number',\n      Matrah: 'number',\n      KDVTutari: 'number',\n      Tutar_KDVDahil: 'number'\n    }\n  ]\n};\nreturn [{ json: { user_prompt: prompt, system_prompt: `Yalnizca JSON dondur. Beklenen sema: ${JSON.stringify(schema)}` } }];"
+      },
+      "id": "prompt-node",
+      "name": "Prompt Hazirla",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2580,
+        -220
+      ]
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "value": "models/gemini-2.5-flash",
+          "mode": "list"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "={{ $json.user_prompt }}"
+            }
+          ]
+        },
+        "jsonOutput": true,
+        "options": {
+          "systemMessage": "={{ $json.system_prompt }}",
+          "temperature": 0
+        }
+      },
+      "id": "gemini-node",
+      "name": "Gemini Analiz",
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1,
+      "position": [
+        2820,
+        -220
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "mg6Qkierq2X8bX9f",
+          "name": "DEMOPROJE"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $json.content || $json.text || $json.output || JSON.stringify($json);\nlet obj = null;\nif (typeof raw === 'string') {\n  const cleaned = raw.replace(/```json|```/g, '').trim();\n  obj = JSON.parse(cleaned);\n} else if (typeof raw === 'object') {\n  obj = raw;\n}\nif (!obj || typeof obj !== 'object') throw new Error('Gemini JSON parse edilemedi');\nconst details = Array.isArray(obj.UrunlerVeKDVBilgileri) ? obj.UrunlerVeKDVBilgileri.map((x) => ({\n  aciklama: x.Aciklama || '',\n  kategori: x.Kategori || '',\n  kdv_oran: Number(x.KDVOrani || 0),\n  matrah: Number(x.Matrah || 0),\n  kdv_tutar: Number(x.KDVTutari || 0),\n  tutar: Number(x.Tutar_KDVDahil || 0)\n})) : [];\nreturn [{ json: {\n  isletme_adi: obj.IsletmeAdi || '',\n  tarih: obj.Tarih || null,\n  saat: obj.Saat || null,\n  fis_no: obj.FisNumarasi || '',\n  toplam_tutar: Number(obj.ToplamTutar || 0),\n  odeme_tipi: obj.OdemeTipi || '',\n  kart_son_4: obj.KartSon4Hane || '',\n  kategori: details[0]?.kategori || 'Diger',\n  ocr_detaylari: details\n} }];"
+      },
+      "id": "parse-node",
+      "name": "Gemini Cevap Parse",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3060,
+        -220
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO fisler (company_id, user_id, isletme_adi, tarih, saat, fis_no, toplam_tutar, para_birimi, kart_son_4, odeme_tipi, kategori, proje, gorsel_url, ocr_detaylari, durum, created_at) VALUES ($1, $2, $3, NULLIF($4, '')::date, NULLIF($5, '')::time, $6, $7, 'TRY', NULLIF($8, ''), $9, $10, NULL, $11, $12::jsonb, 'beklemede', now()) RETURNING id;",
+        "options": {
+          "queryReplacement": "={{ [\n+            $('Kullanici ve Sirket Kontrolu').first().json.company_id,\n+            $('Kullanici ve Sirket Kontrolu').first().json.id,\n+            $json.isletme_adi,\n+            $json.tarih,\n+            $json.saat,\n+            $json.fis_no,\n+            $json.toplam_tutar,\n+            $json.kart_son_4,\n+            $json.odeme_tipi,\n+            $json.kategori,\n+            `https://cdn.fisfatura.com/${$('Kullanici ve Sirket Kontrolu').first().json.company_id}/${$('Kullanici ve Sirket Kontrolu').first().json.company_name}/fisler/${$now.format('yyyy/MM')}/${$('Dosyayi Hazirla').first().json.fileName}`,\n+            JSON.stringify($json.ocr_detaylari || [])\n+          ] }}"
+        }
+      },
+      "id": "insert-node",
+      "name": "Fis Kaydet",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        3300,
+        -220
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "c0xPSSHQBi5bwXF5",
+          "name": "FISmatik"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "editMessageText",
+        "chatId": "={{ $('Dosyayi Hazirla').first().json.chat_id }}",
+        "messageId": "={{ $('Inceleniyor Mesaji').first().json.result.message_id }}",
+        "text": "=Fis kaydedildi. Kayit No: {{ $json.id }}"
+      },
+      "id": "success-msg",
+      "name": "Basari Mesaji",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        3540,
+        -220
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "CFzJKjsFQ3QPP0Vt",
+          "name": "ITTFISMATIKBOT"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Telegram Gelen Mesaj": {
+      "main": [
+        [
+          {
+            "node": "Siraya Koy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Siraya Koy": {
+      "main": [
+        [
+          {
+            "node": "Kullanici ve Sirket Kontrolu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kullanici ve Sirket Kontrolu": {
+      "main": [
+        [
+          {
+            "node": "Yetkili mi",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Yetkili mi": {
+      "main": [
+        [
+          {
+            "node": "Dosyayi Hazirla",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Red Mesaji",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dosyayi Hazirla": {
+      "main": [
+        [
+          {
+            "node": "Inceleniyor Mesaji",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Inceleniyor Mesaji": {
+      "main": [
+        [
+          {
+            "node": "S3 Yukleme",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "S3 Yukleme": {
+      "main": [
+        [
+          {
+            "node": "Google Vision OCR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Vision OCR": {
+      "main": [
+        [
+          {
+            "node": "Fis Dogrulama",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fis Dogrulama": {
+      "main": [
+        [
+          {
+            "node": "Gercekten Fis mi",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gercekten Fis mi": {
+      "main": [
+        [
+          {
+            "node": "Kategorileri Cek",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fis Degil Mesaji",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kategorileri Cek": {
+      "main": [
+        [
+          {
+            "node": "Prompt Hazirla",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prompt Hazirla": {
+      "main": [
+        [
+          {
+            "node": "Gemini Analiz",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Analiz": {
+      "main": [
+        [
+          {
+            "node": "Gemini Cevap Parse",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Cevap Parse": {
+      "main": [
+        [
+          {
+            "node": "Fis Kaydet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fis Kaydet": {
+      "main": [
+        [
+          {
+            "node": "Basari Mesaji",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}
+{
+    "nodes": [
+      {
+        "parameters": {
+          "updates": ["message", "callback_query"],
+          "additionalFields": { "download": true }
+        },
+        "id": "trigger-node",
+        "name": "Telegram Gelen Mesaj",
+        "type": "n8n-nodes-base.telegramTrigger",
+        "typeVersion": 1,
+        "position": [0, 0],
+        "credentials": { "telegramApi": { "id": "CFzJKjsFQ3QPP0Vt", "name": "ITTFİSMATİKBOT" } }
+      },
+      {
+        "parameters": {
+          "amount": 1,
+          "unit": "seconds"
+        },
+        "id": "wait-node",
+        "name": "Sıraya Koy (Wait)",
+        "type": "n8n-nodes-base.wait",
+        "typeVersion": 1,
+        "position": [250, 0],
+        "notesInFlow": true,
+        "notes": "Toplu yüklemeyi dengeler"
+      },
+      {
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "SELECT u.id, u.company_id, u.full_name, c.company_name, c.is_active FROM users u JOIN companies c ON u.company_id = c.id WHERE u.telegram_id = '{{ $json.message.chat.id }}' LIMIT 1;"
+        },
+        "id": "auth-node",
+        "name": "Kullanıcı ve Şirket Kontrolü",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.5,
+        "position": [500, 0],
+        "alwaysOutputData": true,
+        "credentials": { "postgres": { "id": "c0xPSSHQBi5bwXF5", "name": "FİSmatik" } }
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {},
+            "conditions": [
+              { "id": "check-user", "leftValue": "={{ $json.id }}", "rightValue": "", "operator": { "type": "string", "operation": "notEmpty", "singleValue": true } },
+              { "id": "check-active", "leftValue": "={{ $json.is_active }}", "rightValue": "true", "operator": { "type": "boolean", "operation": "true", "singleValue": true } }
+            ],
+            "combinator": "and"
+          }
+        },
+        "id": "auth-if",
+        "name": "Yetkili mi?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [750, 0]
+      },
+      {
+        "parameters": {
+          "chatId": "={{ $('Telegram Gelen Mesaj').first().json.message.chat.id }}",
+          "text": "❌ Sisteme kayıtlı değilsiniz veya şirketinizin süresi dolmuş. Lütfen yöneticinizle iletişime geçin."
+        },
+        "id": "reject-msg",
+        "name": "Red Mesajı",
+        "type": "n8n-nodes-base.telegram",
+        "typeVersion": 1.2,
+        "position": [950, 200],
+        "credentials": { "telegramApi": { "id": "CFzJKjsFQ3QPP0Vt", "name": "ITTFİSMATİKBOT" } }
+      },
+      {
+        "parameters": {
+          "jsCode": "const item = $('Telegram Gelen Mesaj').first();\nconst binaryKeys = Object.keys(item.binary || {});\nif(binaryKeys.length === 0) throw new Error('Görsel bulunamadı');\nconst binaryFileName = binaryKeys[0];\nconst binaryData = item.binary[binaryFileName].data; \nconst base64Image = binaryData.toString('base64');\nconst fileName = `${item.json.message.chat.id}_${new Date().getTime()}.jpg`;\nreturn { base64Image, fileName, binary: item.binary };"
+        },
+        "id": "base64-node",
+        "name": "Dosyayı Hazırla",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [1000, -100]
+      },
+      {
+        "parameters": {
+          "chatId": "={{ $('Telegram Gelen Mesaj').first().json.message.chat.id }}",
+          "text": "={{ $json.fileName }} görseli alındı, yapay zeka inceliyor ⏳",
+          "additionalFields": { "appendAttribution": false }
+        },
+        "id": "processing-msg",
+        "name": "İnceleniyor Mesajı",
+        "type": "n8n-nodes-base.telegram",
+        "typeVersion": 1.2,
+        "position": [1200, -100],
+        "credentials": { "telegramApi": { "id": "CFzJKjsFQ3QPP0Vt", "name": "ITTFİSMATİKBOT" } }
+      },
+      {
+        "parameters": {
+          "operation": "upload",
+          "bucketName": "cdn.fisfatura.com",
+          "fileName": "={{ $('Kullanıcı ve Şirket Kontrolü').first().json.company_id }}/{{ $('Kullanıcı ve Şirket Kontrolü').first().json.company_name }}/fisler/{{ $now.format('yyyy/MM') }}/{{ $('Dosyayı Hazırla').first().json.fileName }}"
+        },
+        "id": "s3-node",
+        "name": "S3 Yükleme",
+        "type": "n8n-nodes-base.awsS3",
+        "typeVersion": 2,
+        "position": [1400, -100],
+        "credentials": { "aws": { "id": "N8W9Eg6vOryjKoZM", "name": "S3 ITT" } }
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "=https://vision.googleapis.com/v1/images:annotate?key=AIzaSyBltZRduPsCwMxqTP1-AwQqBHvS2fHjHt4",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={\n  \"requests\": [\n    {\n      \"image\": { \"content\": \"{{ $('Dosyayı Hazırla').first().json.base64Image }}\" },\n      \"features\": [{ \"type\": \"TEXT_DETECTION\" }, { \"type\": \"DOCUMENT_TEXT_DETECTION\", \"maxResults\": 1 }]\n    }\n  ]\n}"
+        },
+        "id": "vision-node",
+        "name": "Google Vision OCR",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [1600, -100]
+      },
+      {
+        "parameters": {
+          "jsCode": "const ocrResult = $json.responses?.[0]?.textAnnotations?.[0]?.description || '';\nif (!ocrResult || ocrResult.trim().length < 10) return { isFis: false, reason: 'Yazı okunamadı', text: ocrResult };\nconst ocrText = ocrResult.toLowerCase();\nconst fisKeywords = ['kdv', 'toplam', 'tutar', 'fiş', 'fatura', 'ödeme', 'kart', 'nakit', 'tarih', 'matrah', 'vergi'];\nconst hasNumbers = /\\d+[.,]?\\d*/.test(ocrText);\nlet keywordCount = fisKeywords.filter(k => ocrText.includes(k)).length;\nconst isFis = keywordCount >= 2 && hasNumbers;\nreturn { isFis, reason: isFis ? 'OK' : 'Fiş kriterlerine uymuyor', text: ocrResult };"
+        },
+        "id": "fis-check-code",
+        "name": "Fiş Doğrulama",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [1800, -100]
+      },
+      {
+        "parameters": {
+          "conditions": { "options": {}, "conditions": [{ "id": "fis-ok", "leftValue": "={{ $json.isFis }}", "rightValue": "true", "operator": { "type": "boolean", "operation": "true", "singleValue": true } }], "combinator": "and" }
+        },
+        "id": "fis-if",
+        "name": "Gerçekten Fiş Mi?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [2000, -100]
+      },
+      {
+        "parameters": {
+          "operation": "editMessageText",
+          "chatId": "={{ $('Telegram Gelen Mesaj').first().json.message.chat.id }}",
+          "messageId": "={{ $('İnceleniyor Mesajı').first().json.result.message_id }}",
+          "text": "=⚠️ **Görsel Reddedildi**\n\nBu görsel bir fiş veya fatura olarak algılanamadı.\nSebep: {{ $json.reason }}"
+        },
+        "id": "not-fis-msg",
+        "name": "Fiş Değil Uyarısı",
+        "type": "n8n-nodes-base.telegram",
+        "typeVersion": 1.2,
+        "position": [2200, 100],
+        "credentials": { "telegramApi": { "id": "CFzJKjsFQ3QPP0Vt", "name": "ITTFİSMATİKBOT" } }
+      },
+      {
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "=SELECT name FROM categories WHERE company_id = '{{ $('Kullanıcı ve Şirket Kontrolü').first().json.company_id }}';"
+        },
+        "id": "cat-node",
+        "name": "Kategorileri Çek",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.5,
+        "position": [2200, -200],
+        "alwaysOutputData": true,
+        "credentials": { "postgres": { "id": "c0xPSSHQBi5bwXF5", "name": "FİSmatik" } }
+      },
+      {
+        "parameters": {
+          "jsCode": "const cats = $input.all().map(i => i.json.name).filter(Boolean);\nconst catList = cats.length ? cats : ['Market', 'Yemek', 'Yakıt', 'Diğer'];\nconst ocrText = $('Fiş Doğrulama').first().json.text;\nconst prompt = `Sen uzman muhasebecisin. Aşağıdaki OCR metnini analiz et ve JSON ver. Kategoriler: ${catList.join(', ')}.\\nOCR Metni:\\n${ocrText}`;\nconst schema = \"{\\\"type\\\": \\\"object\\\", \\\"properties\\\": { \\\"IsletmeAdi\\\": {\\\"type\\\": \\\"string\\\"}, \\\"Tarih\\\": {\\\"type\\\": \\\"string\\\"}, \\\"Saat\\\": {\\\"type\\\": \\\"string\\\"}, \\\"FisNumarasi\\\": {\\\"type\\\": \\\"string\\\"}, \\\"ToplamTutar\\\": {\\\"type\\\": \\\"number\\\"}, \\\"OdemeTipi\\\": {\\\"type\\\": \\\"string\\\"}, \\\"KartSon4Hane\\\": {\\\"type\\\": \\\"string\\\"}, \\\"UrunlerVeKDVBilgileri\\\": { \\\"type\\\": \\\"array\\\", \\\"items\\\": { \\\"type\\\": \\\"object\\\", \\\"properties\\\": { \\\"UrunTuru\\\": {\\\"type\\\": \\\"string\\\"}, \\\"Kategori\\\": {\\\"type\\\": \\\"string\\\"}, \\\"KDVOrani\\\": {\\\"type\\\": \\\"number\\\"}, \\\"Matrah\\\": {\\\"type\\\": \\\"number\\\"}, \\\"KDVTutari\\\": {\\\"type\\\": \\\"number\\\"}, \\\"Tutar_KDVDahil\\\": {\\\"type\\\": \\\"number\\\"} } } } } }\";\nreturn { system_prompt: \"Sadece istenen formatta JSON üret. JSON Şeması: \" + schema, user_prompt: prompt };"
+        },
+        "id": "prompt-node",
+        "name": "Prompt Hazırla",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [2400, -200]
+      },
+      {
+        "parameters": {
+          "modelId": { "value": "models/gemini-2.5-flash", "mode": "list" },
+          "messages": { "values": [{ "content": "={{ $json.user_prompt }}" }] },
+          "jsonOutput": true,
+          "options": { "systemMessage": "={{ $json.system_prompt }}", "temperature": 0 }
+        },
+        "id": "gemini-node",
+        "name": "Gemini Analiz",
+        "type": "@n8n/n8n-nodes-langchain.googleGemini",
+        "typeVersion": 1,
+        "position": [2600, -200],
+        "credentials": { "googlePalmApi": { "id": "mg6Qkierq2X8bX9f", "name": "DEMOPROJE" } }
+      },
+      {
+        "parameters": {
+          "jsCode": "const res = $json.content || $json.text || JSON.stringify($json);\nconst cleanJson = res.replace(/
+  http://googleusercontent.com/immersive_entry_chip/0
+  

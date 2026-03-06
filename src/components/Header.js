@@ -1,4 +1,4 @@
-function Header({ companyName, role, onLogout }) {
+function Header({ companyName, role, onLogout, kalanKredi }) {
   return (
     <header className="bg-white border-b border-slate-200 px-8 py-4 flex items-center justify-between sticky top-0 z-40 backdrop-blur-md bg-white/80">
       <div className="flex items-center gap-4">
@@ -19,6 +19,10 @@ function Header({ companyName, role, onLogout }) {
       </div>
 
       <div className="flex items-center gap-3">
+        <div className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-100">
+          <Icon name="Wallet" size={16} className="text-emerald-600" />
+          <span className="text-xs text-emerald-700 font-semibold">Kalan Kontor: {Number(kalanKredi || 0)}</span>
+        </div>
         <button
           onClick={onLogout}
           className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-50 hover:bg-rose-50 text-slate-600 hover:text-rose-600 text-sm font-bold transition-all border border-slate-200 hover:border-rose-100 group"

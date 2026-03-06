@@ -330,6 +330,7 @@ function App() {
           receiptTableSimple={true}
           onRefreshReceipts={loadData}
           profile={profile}
+          onOpenBilling={() => setActiveView("subscription")}
         />
       ) : (
         <p className="text-sm text-red-600">Genel bakis sayfasi yuklenemedi.</p>
@@ -339,7 +340,12 @@ function App() {
 
   return (
     <div className="min-h-screen">
-      <Header companyName={company?.company_name || company?.name || "Super Admin Paneli"} role={profile?.role || "-"} onLogout={handleLogout} />
+      <Header
+        companyName={company?.company_name || company?.name || "Super Admin Paneli"}
+        role={profile?.role || "-"}
+        onLogout={handleLogout}
+        kalanKredi={company?.kalan_kredi}
+      />
       <div className="flex">
         <Sidebar
           activeView={activeView}

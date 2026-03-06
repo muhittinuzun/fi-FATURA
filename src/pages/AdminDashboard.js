@@ -38,7 +38,7 @@ function AdminDashboard({ companies, usageLogs, storageSummary }) {
               <tr>
                 <th className="py-2 text-left">Şirket</th>
                 <th className="py-2 text-left">Plan</th>
-                <th className="py-2 text-left">Kullanım</th>
+                <th className="py-2 text-left">Kalan Kontor</th>
                 <th className="py-2 text-left">Durum</th>
               </tr>
             </thead>
@@ -47,9 +47,7 @@ function AdminDashboard({ companies, usageLogs, storageSummary }) {
                 <tr key={company.id} className="border-b border-slate-100">
                   <td className="py-2">{company.name}</td>
                   <td className="py-2">{company.plan_type}</td>
-                  <td className="py-2">
-                    {company.used_this_month}/{Number(company.monthly_limit || 0) + Number(company.extra_credits || 0)}
-                  </td>
+                  <td className="py-2">{Number(company.kalan_kredi || 0)}</td>
                   <td className="py-2">{company.status}</td>
                 </tr>
               ))}
