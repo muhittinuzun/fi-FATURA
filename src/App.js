@@ -15,7 +15,7 @@ function App() {
   const [allCompanies, setAllCompanies] = React.useState([]);
   const [storageSummary, setStorageSummary] = React.useState(null);
   const [activeView, setActiveView] = React.useState("dashboard");
-  const [currentPage, setCurrentPage] = React.useState("login");
+  const [currentPage, setCurrentPage] = React.useState(getSessionKey() ? "login" : "landing");
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState("");
   const [loginForm, setLoginForm] = React.useState({ email: "", password: "" });
@@ -160,6 +160,7 @@ function App() {
 
     clearSessionKey();
     setSessionKeyState("");
+    setCurrentPage("landing");
     setProfile(null);
     setCompany(null);
     setReceipts([]);
@@ -173,9 +174,23 @@ function App() {
 
   if (!sessionKey || !profile) {
     const RegisterComp = window.RegisterPage;
+    const LandingComp = window.LandingPage;
     return (
       <>
-        {currentPage === "login" ? (
+        {currentPage === "landing" ? (
+          LandingComp
+            ? <LandingComp onNavigate={setCurrentPage} />
+            : (
+              <main className="min-h-screen grid place-items-center p-4">
+                <div className="w-full max-w-md bg-white border border-slate-200 rounded-xl p-6 space-y-2">
+                  <p className="text-sm text-red-600">Acilis sayfasi yuklenemedi.</p>
+                  <button type="button" onClick={() => setCurrentPage("login")} className="text-sm underline">
+                    Giris ekranina gec
+                  </button>
+                </div>
+              </main>
+            )
+        ) : currentPage === "login" ? (
           <main className="min-h-screen grid place-items-center p-4">
           <form onSubmit={handleLogin} className="w-full max-w-md bg-white border border-slate-200 rounded-xl p-6 space-y-3">
             <h2 className="text-xl font-bold">Fismatik Giris</h2>
