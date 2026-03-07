@@ -11,6 +11,8 @@ function ReceiptTable({ receipts = [], loading = false, simple = false, profile 
   const [projects, setProjects] = React.useState([]);
   const [editItem, setEditItem] = React.useState(null);
   const [saving, setSaving] = React.useState(false);
+  const [statusOverrides, setStatusOverrides] = React.useState({});
+  const [actionError, setActionError] = React.useState("");
   const [imgZoom, setImgZoom] = React.useState(1);
   const [imgRotate, setImgRotate] = React.useState(0);
   const [imgPan, setImgPan] = React.useState({ x: 0, y: 0 });
@@ -23,12 +25,16 @@ function ReceiptTable({ receipts = [], loading = false, simple = false, profile 
   };
 
   const statusConfig = {
-    beklemede: { label: "Beklemede", cls: "bg-yellow-100 text-yellow-700 border-yellow-200" },
-    onaylandi: { label: "Onaylandı", cls: "bg-emerald-100 text-emerald-700 border-emerald-200" },
-    reddedildi: { label: "Reddedildi", cls: "bg-rose-100 text-rose-700 border-rose-200" },
-    mukerrer: { label: "Mükerrer", cls: "bg-orange-100 text-orange-700 border-orange-200" },
-    "rapor alindi": { label: "Rapor Alındı", cls: "bg-violet-100 text-violet-700 border-violet-200" }
+    beklemede: { label: "Beklemede", cls: "bg-yellow-100 text-yellow-800 border-yellow-200" },
+    onaylandi: { label: "Onaylandi", cls: "bg-green-100 text-green-800 border-green-200" },
+    mukerrer: { label: "Mukerrer", cls: "bg-orange-100 text-orange-800 border-orange-200" },
+    cikartildi: { label: "Cikartildi", cls: "bg-gray-100 text-gray-800 border-gray-200" }
   };
+  const getEffectiveStatus = (receipt) => normalizeStatus(statusOverrides[receipt.id] ?? receipt.durum);
+
+  React.useEffect(() => {
+    setStatusOverrides({});
+  }, [receipts]);
 
   const parseOcrDetails = (value) => {
     if (Array.isArray(value)) return value;
@@ -123,7 +129,7 @@ function ReceiptTable({ receipts = [], loading = false, simple = false, profile 
 
   const filteredReceipts = React.useMemo(() => {
     return receipts.filter((item) => {
-      const durum = normalizeStatus(item.durum);
+      const durum = normalizeStatus(statusOverrides[item.id] ?? item.durum);
       const tarihText = item.tarih ? new Date(item.tarih).toLocaleDateString("tr-TR") : "";
       const tFilter = filters.tarih.trim().toLowerCase();
       const isletmeFilter = filters.isletme.trim().toLowerCase();
@@ -138,7 +144,7 @@ function ReceiptTable({ receipts = [], loading = false, simple = false, profile 
       if (filters.durum && durum !== filters.durum) return false;
       return true;
     });
-  }, [receipts, filters]);
+  }, [receipts, filters, statusOverrides]);
 
   const openEditModal = (item) => {
     let ocrLines = parseOcrDetails(item.ocr_detaylari).map(normalizeOcrLine);
@@ -208,6 +214,25 @@ function ReceiptTable({ receipts = [], loading = false, simple = false, profile 
     return <span className={`px-2.5 py-1 rounded-full text-xs border font-semibold ${conf.cls}`}>{conf.label}</span>;
   };
 
+  const handleQuickStatus = async (receiptId, currentStatus, nextStatus) => {
+    if (!window.updateReceipt || !receiptId) return;
+    const normalizedCurrent = normalizeStatus(currentStatus);
+    const normalizedNext = normalizeStatus(nextStatus);
+    if (normalizedCurrent === normalizedNext) return;
+
+    setActionError("");
+    setStatusOverrides((prev) => ({ ...prev, [receiptId]: normalizedNext }));
+    try {
+      await window.updateReceipt(receiptId, { durum: normalizedNext });
+      if (typeof onRefresh === "function") {
+        await onRefresh();
+      }
+    } catch (err) {
+      setStatusOverrides((prev) => ({ ...prev, [receiptId]: normalizedCurrent }));
+      setActionError(err.message || "Durum guncellenemedi.");
+    }
+  };
+
   return (
     <>
       <section className="glass-panel bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
@@ -215,6 +240,11 @@ function ReceiptTable({ receipts = [], loading = false, simple = false, profile 
           <h3 className="font-bold text-slate-800">Fiş Listesi</h3>
           <span className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded">{filteredReceipts.length} kayıt</span>
         </div>
+        {actionError && (
+          <div className="px-5 pt-3">
+            <p className="text-xs text-rose-600">{actionError}</p>
+          </div>
+        )}
 
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -284,10 +314,9 @@ function ReceiptTable({ receipts = [], loading = false, simple = false, profile 
                     >
                       <option value="">Hepsi</option>
                       <option value="beklemede">Beklemede</option>
-                      <option value="onaylandi">Onaylandı</option>
-                      <option value="reddedildi">Reddedildi</option>
-                      <option value="mukerrer">Mükerrer</option>
-                      <option value="rapor alindi">Rapor Alındı</option>
+                      <option value="onaylandi">Onaylandi</option>
+                      <option value="mukerrer">Mukerrer</option>
+                      <option value="cikartildi">Cikartildi</option>
                     </select>
                   </th>
                   <th className="px-4 pb-3"></th>
@@ -303,33 +332,56 @@ function ReceiptTable({ receipts = [], loading = false, simple = false, profile 
               ) : (
                 filteredReceipts.map((receipt) => (
                   <tr key={receipt.id} className="group hover:bg-slate-50">
+                    {(() => {
+                      const effectiveStatus = getEffectiveStatus(receipt);
+                      return (
+                        <>
                     <td className="px-4 py-3">{receipt.tarih ? new Date(receipt.tarih).toLocaleDateString("tr-TR") : "-"}</td>
                     <td className="px-4 py-3 font-mono text-xs">{receipt.fis_no || "-"}</td>
                     <td className="px-4 py-3 font-medium">{receipt.isletme_adi || "-"}</td>
                     <td className="px-4 py-3">{receipt.kategori || "-"}</td>
                     <td className="px-4 py-3">{receipt.kart_son_4 || "-"}</td>
                     <td className="px-4 py-3 text-right">{window.formatCurrency ? window.formatCurrency(receipt.toplam_tutar) : receipt.toplam_tutar}</td>
-                    <td className="px-4 py-3 text-center">{statusBadge(receipt.durum)}</td>
+                    <td className="px-4 py-3 text-center">{statusBadge(effectiveStatus)}</td>
                     <td className="px-4 py-3 text-center">
                       {!simple && (
                         <div className="flex items-center justify-center gap-2">
                           <button
-                            onClick={() => openEditModal(receipt)}
-                            className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs hover:bg-slate-100"
+                            title="Onayla"
+                            onClick={() => handleQuickStatus(receipt.id, effectiveStatus, "onaylandi")}
+                            className="w-8 h-8 rounded-lg border border-emerald-200 text-emerald-700 text-xs hover:bg-emerald-50 grid place-items-center"
                           >
-                            Duzenle
+                            ✅
                           </button>
-                          {typeof onDeleteReceipt === "function" && (
+                          <button
+                            title="Cikart"
+                            onClick={() => handleQuickStatus(receipt.id, effectiveStatus, "cikartildi")}
+                            className="w-8 h-8 rounded-lg border border-slate-300 text-slate-700 text-xs hover:bg-slate-100 grid place-items-center"
+                          >
+                            🗑️
+                          </button>
+                          <button
+                            title="Duzenle"
+                            onClick={() => openEditModal(receipt)}
+                            className="w-8 h-8 rounded-lg border border-slate-200 text-slate-700 text-xs hover:bg-slate-100 grid place-items-center"
+                          >
+                            ✏️
+                          </button>
+                          {effectiveStatus === "cikartildi" && (
                             <button
-                              onClick={() => onDeleteReceipt(receipt.id)}
-                              className="px-3 py-1.5 rounded-lg border border-rose-200 text-rose-600 text-xs hover:bg-rose-50"
+                              title="Beklemeye Al"
+                              onClick={() => handleQuickStatus(receipt.id, effectiveStatus, "beklemede")}
+                              className="px-2.5 h-8 rounded-lg border border-yellow-200 text-yellow-700 text-[11px] hover:bg-yellow-50"
                             >
-                              Sil
+                              Beklemeye Al
                             </button>
                           )}
                         </div>
                       )}
                     </td>
+                        </>
+                      );
+                    })()}
                   </tr>
                 ))
               )}
@@ -413,13 +465,12 @@ function ReceiptTable({ receipts = [], loading = false, simple = false, profile 
                   <input value={editItem.kart_son_4 || ""} onChange={(e) => setEditItem((p) => ({ ...p, kart_son_4: e.target.value }))} className="w-full border rounded px-3 py-2 text-sm" />
                 </div>
                 <div>
-                  <label className="text-xs text-slate-500">Durum</label>
+                  <label className="text-xs text-slate-500">Fis Durumu</label>
                   <select value={normalizeStatus(editItem.durum)} onChange={(e) => setEditItem((p) => ({ ...p, durum: e.target.value }))} className="w-full border rounded px-3 py-2 text-sm">
                     <option value="beklemede">beklemede</option>
                     <option value="onaylandi">onaylandi</option>
-                    <option value="reddedildi">reddedildi</option>
                     <option value="mukerrer">mukerrer</option>
-                    <option value="rapor alindi">rapor alindi</option>
+                    <option value="cikartildi">cikartildi</option>
                   </select>
                 </div>
                 <div>

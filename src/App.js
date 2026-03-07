@@ -34,7 +34,7 @@ function App() {
   );
   const resolvePage = React.useCallback((key) => {
     const map = {
-      reports: window.ReportsPageV2 || window.ReportsPage,
+      reports: window.ReportsPageV3 || window.ReportsPageV2 || window.ReportsPage,
       receipts: window.ReceiptsPage,
       team: window.TeamPage,
       settings: window.SettingsPage,
